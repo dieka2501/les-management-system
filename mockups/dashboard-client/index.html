@@ -1,0 +1,1522 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mockup Dashboard Client - Les Management System</title>
+    <style>
+      :root {
+        --bg: #f6f8fb;
+        --panel: #ffffff;
+        --panel-soft: #f0f6ff;
+        --ink: #172033;
+        --muted: #64748b;
+        --line: #dce5f2;
+        --brand: #2563eb;
+        --brand-dark: #1e40af;
+        --brand-soft: #dbeafe;
+        --green: #16a34a;
+        --green-soft: #dcfce7;
+        --amber: #d97706;
+        --amber-soft: #fef3c7;
+        --red: #dc2626;
+        --red-soft: #fee2e2;
+        --purple: #7c3aed;
+        --purple-soft: #ede9fe;
+        --shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+        --radius-lg: 24px;
+        --radius-md: 16px;
+        --radius-sm: 10px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+
+      .app-shell {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 280px minmax(0, 1fr);
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 24px 18px;
+        color: #eaf2ff;
+        background:
+          radial-gradient(circle at top left, rgba(125, 211, 252, 0.22), transparent 35%),
+          linear-gradient(165deg, #0f172a 0%, #162554 48%, #1e40af 100%);
+        overflow-y: auto;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 8px 22px;
+      }
+
+      .brand-mark {
+        width: 44px;
+        height: 44px;
+        border-radius: 15px;
+        display: grid;
+        place-items: center;
+        color: white;
+        font-weight: 800;
+        background: linear-gradient(135deg, #60a5fa, #22c55e);
+        box-shadow: 0 12px 28px rgba(96, 165, 250, 0.28);
+      }
+
+      .brand strong {
+        display: block;
+        font-size: 16px;
+      }
+
+      .brand span {
+        display: block;
+        margin-top: 2px;
+        color: #bad0f3;
+        font-size: 12px;
+      }
+
+      .nav-title {
+        margin: 22px 10px 9px;
+        color: #93a8cc;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      .nav-list {
+        display: grid;
+        gap: 6px;
+      }
+
+      .nav-link {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 12px 13px;
+        border-radius: 14px;
+        color: #dce9ff;
+        font-size: 14px;
+      }
+
+      .nav-link:hover,
+      .nav-link.active {
+        background: rgba(255, 255, 255, 0.13);
+      }
+
+      .nav-link small {
+        min-width: 24px;
+        padding: 3px 7px;
+        border-radius: 99px;
+        color: #172033;
+        background: #bfdbfe;
+        text-align: center;
+        font-weight: 800;
+      }
+
+      .sidebar-card {
+        margin-top: 24px;
+        padding: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .sidebar-card p {
+        margin: 8px 0 0;
+        color: #cfe0ff;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 24px;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 4;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 14px 18px;
+        margin: -24px -24px 24px;
+        border-bottom: 1px solid rgba(220, 229, 242, 0.88);
+        background: rgba(246, 248, 251, 0.88);
+        backdrop-filter: blur(14px);
+      }
+
+      .search {
+        flex: 1;
+        max-width: 560px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: white;
+        color: var(--muted);
+      }
+
+      .search input {
+        width: 100%;
+        border: 0;
+        outline: 0;
+        color: var(--ink);
+      }
+
+      .top-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 42px;
+        padding: 10px 14px;
+        border: 0;
+        border-radius: 999px;
+        color: white;
+        background: var(--brand);
+        font-weight: 800;
+        cursor: default;
+        box-shadow: 0 11px 20px rgba(37, 99, 235, 0.18);
+      }
+
+      .btn.secondary {
+        color: var(--brand-dark);
+        background: var(--brand-soft);
+        box-shadow: none;
+      }
+
+      .btn.ghost {
+        color: var(--ink);
+        border: 1px solid var(--line);
+        background: white;
+        box-shadow: none;
+      }
+
+      .user-pill {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px 8px 8px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: white;
+      }
+
+      .avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: white;
+        background: linear-gradient(135deg, #2563eb, #7c3aed);
+        font-weight: 900;
+      }
+
+      .page-section {
+        scroll-margin-top: 92px;
+        margin-bottom: 28px;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 14px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 8px;
+        color: var(--brand-dark);
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        margin-bottom: 8px;
+        font-size: clamp(28px, 4vw, 44px);
+        line-height: 1.06;
+        letter-spacing: -0.04em;
+      }
+
+      h2 {
+        margin-bottom: 6px;
+        font-size: 24px;
+        letter-spacing: -0.02em;
+      }
+
+      h3 {
+        margin-bottom: 8px;
+        font-size: 17px;
+      }
+
+      .lead {
+        max-width: 820px;
+        margin-bottom: 0;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.65;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.45fr) minmax(310px, 0.7fr);
+        gap: 18px;
+      }
+
+      .hero-card,
+      .panel,
+      .metric-card {
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        background: var(--panel);
+        box-shadow: var(--shadow);
+      }
+
+      .hero-card {
+        min-height: 300px;
+        padding: 28px;
+        background:
+          radial-gradient(circle at top right, rgba(37, 99, 235, 0.16), transparent 38%),
+          linear-gradient(145deg, #ffffff 0%, #f1f7ff 100%);
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 24px;
+      }
+
+      .daily-focus {
+        padding: 22px;
+      }
+
+      .focus-item {
+        display: grid;
+        grid-template-columns: 42px 1fr;
+        gap: 12px;
+        padding: 13px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .focus-item:first-of-type {
+        border-top: 0;
+      }
+
+      .icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        background: var(--brand-soft);
+        font-size: 19px;
+      }
+
+      .focus-item strong {
+        display: block;
+        font-size: 14px;
+      }
+
+      .focus-item span {
+        display: block;
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.42;
+      }
+
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin: 18px 0;
+      }
+
+      .metric-card {
+        padding: 18px;
+      }
+
+      .metric-card span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .metric-card strong {
+        display: block;
+        margin-top: 8px;
+        font-size: 30px;
+        letter-spacing: -0.04em;
+      }
+
+      .metric-card small {
+        display: inline-flex;
+        margin-top: 10px;
+        padding: 5px 9px;
+        border-radius: 99px;
+        color: var(--green);
+        background: var(--green-soft);
+        font-weight: 800;
+      }
+
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+        gap: 18px;
+      }
+
+      .panel {
+        padding: 20px;
+        overflow: hidden;
+      }
+
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 16px;
+      }
+
+      .panel-head p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+
+      .table th {
+        color: var(--muted);
+        text-align: left;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .table th,
+      .table td {
+        padding: 13px 10px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+
+      .table tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 9px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .status.green {
+        color: #166534;
+        background: var(--green-soft);
+      }
+
+      .status.amber {
+        color: #92400e;
+        background: var(--amber-soft);
+      }
+
+      .status.red {
+        color: #991b1b;
+        background: var(--red-soft);
+      }
+
+      .status.blue {
+        color: #1e40af;
+        background: var(--brand-soft);
+      }
+
+      .status.purple {
+        color: #5b21b6;
+        background: var(--purple-soft);
+      }
+
+      .mini-action {
+        display: inline-flex;
+        padding: 7px 10px;
+        border-radius: 999px;
+        color: var(--brand-dark);
+        background: var(--brand-soft);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .timeline {
+        display: grid;
+        gap: 12px;
+      }
+
+      .lesson-card {
+        display: grid;
+        grid-template-columns: 70px 1fr auto;
+        gap: 12px;
+        align-items: center;
+        padding: 13px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        background: #fbfdff;
+      }
+
+      .lesson-time {
+        color: var(--brand-dark);
+        font-weight: 900;
+      }
+
+      .lesson-card p {
+        margin: 3px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 0.76fr);
+        gap: 18px;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+
+      .input-like {
+        min-width: 180px;
+        padding: 11px 13px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        background: white;
+        font-size: 13px;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .field {
+        display: grid;
+        gap: 7px;
+      }
+
+      .field label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .field .fake-control,
+      .field textarea {
+        min-height: 43px;
+        padding: 11px 12px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        color: var(--ink);
+        background: #fbfdff;
+      }
+
+      .field textarea {
+        resize: vertical;
+      }
+
+      .span-2 {
+        grid-column: span 2;
+      }
+
+      .family-card,
+      .teacher-card,
+      .candidate-card {
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        background: #fbfdff;
+      }
+
+      .stack {
+        display: grid;
+        gap: 12px;
+      }
+
+      .person-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .person-row p {
+        margin: 5px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin-top: 12px;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 9px;
+        border-radius: 999px;
+        color: #334155;
+        background: #eef2f7;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .teacher-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .teacher-card header {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .teacher-avatar {
+        width: 46px;
+        height: 46px;
+        border-radius: 16px;
+        display: grid;
+        place-items: center;
+        color: white;
+        background: linear-gradient(135deg, #0ea5e9, #2563eb);
+        font-weight: 900;
+      }
+
+      .teacher-card p {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .calendar-wrap {
+        overflow-x: auto;
+      }
+
+      .calendar {
+        min-width: 760px;
+        display: grid;
+        grid-template-columns: 72px repeat(5, minmax(120px, 1fr));
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+      }
+
+      .cal-cell,
+      .cal-head,
+      .time-cell {
+        min-height: 86px;
+        padding: 10px;
+        border-right: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        background: white;
+      }
+
+      .cal-head {
+        min-height: 48px;
+        color: var(--muted);
+        background: #f8fafc;
+        font-size: 12px;
+        font-weight: 900;
+        text-transform: uppercase;
+      }
+
+      .time-cell {
+        color: var(--muted);
+        background: #f8fafc;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .cal-event {
+        padding: 9px;
+        border-radius: 12px;
+        background: var(--brand-soft);
+        color: #1e3a8a;
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      .cal-event.green {
+        color: #14532d;
+        background: var(--green-soft);
+      }
+
+      .cal-event.purple {
+        color: #4c1d95;
+        background: var(--purple-soft);
+      }
+
+      .generator {
+        background:
+          radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.16), transparent 36%),
+          #ffffff;
+      }
+
+      .step-list {
+        counter-reset: step;
+        display: grid;
+        gap: 10px;
+        margin: 16px 0;
+      }
+
+      .step {
+        position: relative;
+        padding: 12px 12px 12px 46px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fbfdff;
+      }
+
+      .step::before {
+        counter-increment: step;
+        content: counter(step);
+        position: absolute;
+        left: 12px;
+        top: 12px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: white;
+        background: var(--brand);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .step strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .step span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .candidate-card {
+        margin-top: 14px;
+        background: linear-gradient(145deg, #f0fdf4, #ffffff);
+      }
+
+      .candidate-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .candidate-row:first-of-type {
+        border-top: 0;
+      }
+
+      .knowledge-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 14px;
+      }
+
+      .note {
+        padding: 14px;
+        border-radius: var(--radius-md);
+        color: #334155;
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .mobile-hint {
+        display: none;
+      }
+
+      @media (max-width: 1180px) {
+        .app-shell {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: static;
+          height: auto;
+        }
+
+        .nav-list {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .hero,
+        .dashboard-grid,
+        .two-col {
+          grid-template-columns: 1fr;
+        }
+
+        .metric-grid,
+        .teacher-grid,
+        .knowledge-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 760px) {
+        .main {
+          padding: 16px;
+        }
+
+        .topbar {
+          flex-direction: column;
+          align-items: stretch;
+          margin: -16px -16px 18px;
+        }
+
+        .top-actions {
+          justify-content: space-between;
+        }
+
+        .metric-grid,
+        .teacher-grid,
+        .knowledge-grid,
+        .form-grid,
+        .nav-list {
+          grid-template-columns: 1fr;
+        }
+
+        .span-2 {
+          grid-column: span 1;
+        }
+
+        .section-head {
+          align-items: start;
+          flex-direction: column;
+        }
+
+        .table {
+          min-width: 660px;
+        }
+
+        .table-scroll {
+          overflow-x: auto;
+        }
+
+        .mobile-hint {
+          display: block;
+          margin: 0 0 10px;
+          color: var(--muted);
+          font-size: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">LB</div>
+          <div>
+            <strong>Les Belajar</strong>
+            <span>Dashboard Client / Operasional</span>
+          </div>
+        </div>
+
+        <div class="nav-title">Pekerjaan Utama</div>
+        <nav class="nav-list" aria-label="Navigasi mockup dashboard">
+          <a class="nav-link active" href="#beranda">🏠 Beranda <small>6</small></a>
+          <a class="nav-link" href="#pendaftaran">💬 Pendaftaran <small>3</small></a>
+          <a class="nav-link" href="#keluarga">👨‍👩‍👧 Orang Tua & Murid</a>
+          <a class="nav-link" href="#guru">👩‍🏫 Guru</a>
+          <a class="nav-link" href="#jadwal">📅 Jadwal</a>
+          <a class="nav-link" href="#tagihan">🧾 Tagihan <small>4</small></a>
+          <a class="nav-link" href="#chatbot">🤖 Pengetahuan Chatbot</a>
+        </nav>
+
+        <div class="sidebar-card">
+          <strong>Prinsip UX</strong>
+          <p>Satu layar = satu pekerjaan utama. Semua istilah memakai bahasa operasional, bukan istilah teknis.</p>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <label class="search" aria-label="Pencarian global">
+            🔎
+            <input type="search" value="" placeholder="Cari orang tua, murid, guru, jadwal..." />
+          </label>
+          <div class="top-actions">
+            <a class="btn secondary" href="#jadwal">⚡ Generate Jadwal</a>
+            <a class="btn" href="#pendaftaran">+ Pendaftaran Baru</a>
+            <div class="user-pill">
+              <div class="avatar">A</div>
+              <span>Admin Les</span>
+            </div>
+          </div>
+        </header>
+
+        <section id="beranda" class="page-section">
+          <div class="hero">
+            <div class="hero-card">
+              <span class="eyebrow">Beranda Operasional</span>
+              <h1>Hari ini staf cukup fokus ke pekerjaan yang perlu ditangani.</h1>
+              <p class="lead">
+                Mockup ini dirancang untuk pengguna non-teknis: daftar tugas jelas, tombol aksi terlihat,
+                dan sistem memberi peringatan sebelum data jadwal/tagihan berubah.
+              </p>
+              <div class="hero-actions">
+                <a class="btn" href="#pendaftaran">Tinjau 3 pendaftaran</a>
+                <a class="btn ghost" href="#jadwal">Lihat jadwal hari ini</a>
+                <a class="btn secondary" href="#guru">Tambah guru</a>
+              </div>
+            </div>
+
+            <div class="daily-focus panel daily-focus">
+              <div class="panel-head">
+                <div>
+                  <h3>Prioritas hari ini</h3>
+                  <p>Ditampilkan paling atas agar staf tidak perlu berburu menu.</p>
+                </div>
+              </div>
+              <div class="focus-item">
+                <div class="icon">💬</div>
+                <div>
+                  <strong>3 pendaftaran dari chatbot menunggu review</strong>
+                  <span>Data orang tua dan anak sudah terisi, tinggal cek duplikasi.</span>
+                </div>
+              </div>
+              <div class="focus-item">
+                <div class="icon">📅</div>
+                <div>
+                  <strong>2 jadwal perlu konfirmasi guru</strong>
+                  <span>Sistem sudah menyiapkan kandidat tanpa bentrok.</span>
+                </div>
+              </div>
+              <div class="focus-item">
+                <div class="icon">🧾</div>
+                <div>
+                  <strong>4 tagihan jatuh tempo minggu ini</strong>
+                  <span>Pengingat WhatsApp bisa dikirim manual atau otomatis.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="metric-grid">
+            <article class="metric-card">
+              <span>Pendaftaran baru</span>
+              <strong>12</strong>
+              <small>+4 dari minggu lalu</small>
+            </article>
+            <article class="metric-card">
+              <span>Murid aktif</span>
+              <strong>86</strong>
+              <small>5 murid baru</small>
+            </article>
+            <article class="metric-card">
+              <span>Guru aktif</span>
+              <strong>18</strong>
+              <small>3 tersedia sore ini</small>
+            </article>
+            <article class="metric-card">
+              <span>Sesi minggu ini</span>
+              <strong>134</strong>
+              <small>0 bentrok aktif</small>
+            </article>
+          </div>
+
+          <div class="dashboard-grid">
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h3>Jadwal belajar hari ini</h3>
+                  <p>Ringkas, langsung menunjukkan guru, murid, dan status pengingat.</p>
+                </div>
+                <a class="mini-action" href="#jadwal">Buka kalender</a>
+              </div>
+              <div class="timeline">
+                <div class="lesson-card">
+                  <div class="lesson-time">09:00</div>
+                  <div>
+                    <strong>Matematika - Raka Putra</strong>
+                    <p>Guru: Bu Sari • Online • 90 menit</p>
+                  </div>
+                  <span class="status green">Pengingat terkirim</span>
+                </div>
+                <div class="lesson-card">
+                  <div class="lesson-time">13:00</div>
+                  <div>
+                    <strong>Bahasa Inggris - Aisyah Nabila</strong>
+                    <p>Guru: Pak Dimas • Rumah murid • 60 menit</p>
+                  </div>
+                  <span class="status amber">Menunggu guru</span>
+                </div>
+                <div class="lesson-card">
+                  <div class="lesson-time">16:30</div>
+                  <div>
+                    <strong>IPA - Kevin Aditya</strong>
+                    <p>Guru: Bu Mira • Kelas BSD • 90 menit</p>
+                  </div>
+                  <span class="status blue">Siap</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h3>Pendaftaran masuk</h3>
+                  <p>Hasil chatbot masuk sebagai data siap-review.</p>
+                </div>
+                <a class="mini-action" href="#pendaftaran">Tinjau semua</a>
+              </div>
+              <div class="stack">
+                <div class="family-card">
+                  <div class="person-row">
+                    <div>
+                      <strong>Ibu Rina • 0812-0000-1122</strong>
+                      <p>Anak: Raka, kelas 5 SD • Minat: Matematika</p>
+                    </div>
+                    <span class="status amber">Baru</span>
+                  </div>
+                  <div class="chips">
+                    <span class="chip">Dari WhatsApp</span>
+                    <span class="chip">Minta jadwal sore</span>
+                  </div>
+                </div>
+                <div class="family-card">
+                  <div class="person-row">
+                    <div>
+                      <strong>Pak Hendra • 0857-2222-9988</strong>
+                      <p>Anak: Aisyah, kelas 3 SD • Minat: Bahasa Inggris</p>
+                    </div>
+                    <span class="status blue">Perlu cek paket</span>
+                  </div>
+                  <div class="chips">
+                    <span class="chip">Ada catatan kebutuhan</span>
+                    <span class="chip">Preferensi Sabtu</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="pendaftaran" class="page-section">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Alur dari Chatbot</span>
+              <h2>Pendaftaran</h2>
+              <p class="lead">Staf cukup meninjau data, melengkapi yang kurang, lalu ubah menjadi orang tua, murid, dan enrollment aktif.</p>
+            </div>
+            <a class="btn" href="#keluarga">Ubah jadi murid aktif</a>
+          </div>
+
+          <div class="two-col">
+            <div class="panel">
+              <div class="toolbar">
+                <span class="input-like">Status: Semua</span>
+                <span class="input-like">Sumber: Chatbot</span>
+                <span class="input-like">Cari nama/WA</span>
+              </div>
+              <p class="mobile-hint">Geser tabel ke kanan untuk melihat semua kolom.</p>
+              <div class="table-scroll">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Calon Orang Tua</th>
+                      <th>Anak</th>
+                      <th>Minat</th>
+                      <th>Status</th>
+                      <th>Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Ibu Rina<br /><span class="muted">0812-0000-1122</span></td>
+                      <td>Raka Putra<br /><span class="muted">Kelas 5 SD</span></td>
+                      <td>Matematika • 2x/minggu</td>
+                      <td><span class="status amber">Perlu review</span></td>
+                      <td><span class="mini-action">Cek data</span></td>
+                    </tr>
+                    <tr>
+                      <td>Pak Hendra<br /><span class="muted">0857-2222-9988</span></td>
+                      <td>Aisyah Nabila<br /><span class="muted">Kelas 3 SD</span></td>
+                      <td>Bahasa Inggris • Sabtu</td>
+                      <td><span class="status blue">Perlu paket</span></td>
+                      <td><span class="mini-action">Lengkapi</span></td>
+                    </tr>
+                    <tr>
+                      <td>Ibu Melati<br /><span class="muted">0813-4040-2020</span></td>
+                      <td>Kevin Aditya<br /><span class="muted">Kelas 7 SMP</span></td>
+                      <td>IPA • Online</td>
+                      <td><span class="status green">Siap diproses</span></td>
+                      <td><span class="mini-action">Aktifkan</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <aside class="panel">
+              <div class="panel-head">
+                <div>
+                  <h3>Detail review cepat</h3>
+                  <p>Panel kanan mengurangi bolak-balik halaman.</p>
+                </div>
+              </div>
+              <div class="form-grid">
+                <div class="field">
+                  <label>Nama orang tua</label>
+                  <div class="fake-control">Ibu Rina</div>
+                </div>
+                <div class="field">
+                  <label>No. WhatsApp</label>
+                  <div class="fake-control">0812-0000-1122</div>
+                </div>
+                <div class="field">
+                  <label>Nama anak</label>
+                  <div class="fake-control">Raka Putra</div>
+                </div>
+                <div class="field">
+                  <label>Mapel</label>
+                  <div class="fake-control">Matematika</div>
+                </div>
+                <div class="field span-2">
+                  <label>Catatan chatbot</label>
+                  <textarea rows="3" readonly>Orang tua meminta jadwal sore setelah jam 16.00, preferensi Selasa dan Kamis.</textarea>
+                </div>
+              </div>
+              <div class="hero-actions">
+                <span class="btn">Setujui</span>
+                <span class="btn secondary">Minta kelengkapan</span>
+                <span class="btn ghost">Batalkan</span>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="keluarga" class="page-section">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">CRUD Orang Tua & Murid</span>
+              <h2>Data keluarga dibuat satu layar</h2>
+              <p class="lead">Relasi orang tua dan anak dibuat jelas: satu orang tua bisa punya beberapa anak, satu anak bisa ambil beberapa mapel.</p>
+            </div>
+            <div class="hero-actions">
+              <a class="btn" href="#keluarga">+ Tambah orang tua</a>
+              <a class="btn secondary" href="#keluarga">+ Tambah murid</a>
+            </div>
+          </div>
+
+          <div class="two-col">
+            <div class="panel">
+              <div class="toolbar">
+                <span class="input-like">Cari nama keluarga</span>
+                <span class="input-like">Paket aktif</span>
+                <span class="input-like">Status: Aktif</span>
+              </div>
+              <div class="stack">
+                <article class="family-card">
+                  <div class="person-row">
+                    <div>
+                      <strong>ORT-0001 • Ibu Rina Kusuma</strong>
+                      <p>rina@email.com • 0812-0000-1122 • Jl. Merpati No. 10</p>
+                    </div>
+                    <span class="status green">Aktif</span>
+                  </div>
+                  <div class="chips">
+                    <span class="chip">ANK-0001 Raka • Matematika</span>
+                    <span class="chip">ANK-0008 Dina • Bahasa Inggris</span>
+                  </div>
+                </article>
+                <article class="family-card">
+                  <div class="person-row">
+                    <div>
+                      <strong>ORT-0002 • Pak Hendra Wijaya</strong>
+                      <p>hendra@email.com • 0857-2222-9988 • Jl. Anggrek No. 8</p>
+                    </div>
+                    <span class="status amber">Tagihan jatuh tempo</span>
+                  </div>
+                  <div class="chips">
+                    <span class="chip">ANK-0002 Aisyah • Bahasa Inggris</span>
+                  </div>
+                </article>
+              </div>
+            </div>
+
+            <aside class="panel">
+              <div class="panel-head">
+                <div>
+                  <h3>Form tambah murid</h3>
+                  <p>Dibagi menjadi data wajib saja dulu.</p>
+                </div>
+              </div>
+              <div class="form-grid">
+                <div class="field">
+                  <label>Kode anak</label>
+                  <div class="fake-control">Otomatis: ANK-0009</div>
+                </div>
+                <div class="field">
+                  <label>Orang tua</label>
+                  <div class="fake-control">Ibu Rina Kusuma</div>
+                </div>
+                <div class="field span-2">
+                  <label>Nama lengkap anak</label>
+                  <div class="fake-control">Dina Putri</div>
+                </div>
+                <div class="field">
+                  <label>Tempat/Tanggal lahir</label>
+                  <div class="fake-control">Bandung, 12 Mei 2016</div>
+                </div>
+                <div class="field">
+                  <label>Jenis kelamin</label>
+                  <div class="fake-control">Perempuan</div>
+                </div>
+                <div class="field span-2">
+                  <label>Mata pelajaran</label>
+                  <div class="fake-control">Bahasa Inggris, Matematika</div>
+                </div>
+              </div>
+              <div class="note" style="margin-top: 14px;">
+                UX: hapus permanen tidak ditonjolkan. Jika data sudah punya jadwal/tagihan, aksi utamanya adalah “Arsipkan”.
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="guru" class="page-section">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">CRUD Guru</span>
+              <h2>Guru, mata pelajaran, dan availability</h2>
+              <p class="lead">Guru nonaktif tidak muncul di generator jadwal baru, tapi riwayat jadwalnya tetap aman.</p>
+            </div>
+            <a class="btn" href="#guru">+ Tambah guru</a>
+          </div>
+
+          <div class="teacher-grid">
+            <article class="teacher-card">
+              <header>
+                <div class="teacher-avatar">SR</div>
+                <div>
+                  <strong>GR-0001 • Bu Sari</strong>
+                  <p>S1 Pendidikan Matematika</p>
+                </div>
+              </header>
+              <div class="chips">
+                <span class="chip">Matematika</span>
+                <span class="chip">IPA SD</span>
+              </div>
+              <p>Availability: Senin–Kamis, 15.00–19.00. Jadwal aktif minggu ini: 12 sesi.</p>
+              <span class="status green">Aktif</span>
+            </article>
+
+            <article class="teacher-card">
+              <header>
+                <div class="teacher-avatar">DM</div>
+                <div>
+                  <strong>GR-0002 • Pak Dimas</strong>
+                  <p>S1 Sastra Inggris</p>
+                </div>
+              </header>
+              <div class="chips">
+                <span class="chip">Bahasa Inggris</span>
+                <span class="chip">Conversation</span>
+              </div>
+              <p>Availability: Selasa, Kamis, Sabtu. Cocok untuk permintaan akhir pekan.</p>
+              <span class="status green">Aktif</span>
+            </article>
+
+            <article class="teacher-card">
+              <header>
+                <div class="teacher-avatar">MR</div>
+                <div>
+                  <strong>GR-0003 • Bu Mira</strong>
+                  <p>S1 Pendidikan Biologi</p>
+                </div>
+              </header>
+              <div class="chips">
+                <span class="chip">IPA</span>
+                <span class="chip">Biologi</span>
+              </div>
+              <p>Availability: Senin, Rabu, Jumat pagi. Tidak muncul untuk slot sore.</p>
+              <span class="status amber">Terbatas</span>
+            </article>
+          </div>
+        </section>
+
+        <section id="jadwal" class="page-section">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">CRUD Jadwal + Generator</span>
+              <h2>Kalender yang menolak jadwal bentrok</h2>
+              <p class="lead">Admin bisa membuat manual atau meminta sistem memberi kandidat jadwal otomatis yang sudah dicek guru dan muridnya.</p>
+            </div>
+            <div class="hero-actions">
+              <a class="btn ghost" href="#jadwal">+ Jadwal manual</a>
+              <a class="btn" href="#generator">Generate otomatis</a>
+            </div>
+          </div>
+
+          <div class="two-col">
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h3>Kalender mingguan</h3>
+                  <p>Contoh tampilan ringkas untuk staf operasional.</p>
+                </div>
+                <span class="status green">0 bentrok</span>
+              </div>
+              <div class="calendar-wrap">
+                <div class="calendar">
+                  <div class="cal-head">Jam</div>
+                  <div class="cal-head">Senin</div>
+                  <div class="cal-head">Selasa</div>
+                  <div class="cal-head">Rabu</div>
+                  <div class="cal-head">Kamis</div>
+                  <div class="cal-head">Jumat</div>
+
+                  <div class="time-cell">09:00</div>
+                  <div class="cal-cell"><div class="cal-event green">IPA<br />Kevin • Bu Mira</div></div>
+                  <div class="cal-cell"></div>
+                  <div class="cal-cell"></div>
+                  <div class="cal-cell"><div class="cal-event">Math<br />Raka • Bu Sari</div></div>
+                  <div class="cal-cell"></div>
+
+                  <div class="time-cell">13:00</div>
+                  <div class="cal-cell"></div>
+                  <div class="cal-cell"><div class="cal-event purple">English<br />Aisyah • Pak Dimas</div></div>
+                  <div class="cal-cell"></div>
+                  <div class="cal-cell"></div>
+                  <div class="cal-cell"><div class="cal-event green">IPA<br />Kevin • Bu Mira</div></div>
+
+                  <div class="time-cell">16:00</div>
+                  <div class="cal-cell"><div class="cal-event">Math<br />Raka • Bu Sari</div></div>
+                  <div class="cal-cell"></div>
+                  <div class="cal-cell"><div class="cal-event purple">English<br />Dina • Pak Dimas</div></div>
+                  <div class="cal-cell"></div>
+                  <div class="cal-cell"></div>
+                </div>
+              </div>
+            </div>
+
+            <aside id="generator" class="panel generator">
+              <div class="panel-head">
+                <div>
+                  <h3>Generator jadwal otomatis</h3>
+                  <p>Bukan langsung menyimpan. Sistem memberi kandidat dulu.</p>
+                </div>
+              </div>
+
+              <div class="step-list">
+                <div class="step">
+                  <strong>Pilih murid dan mapel</strong>
+                  <span>Raka Putra • Matematika • Paket 2x/minggu</span>
+                </div>
+                <div class="step">
+                  <strong>Masukkan preferensi</strong>
+                  <span>Selasa/Kamis, 16.00–19.00, online</span>
+                </div>
+                <div class="step">
+                  <strong>Sistem cek guru dan bentrok</strong>
+                  <span>Guru harus bisa mapel, tersedia, dan tidak mengajar di slot yang sama.</span>
+                </div>
+              </div>
+
+              <div class="candidate-card">
+                <div class="person-row">
+                  <div>
+                    <strong>Kandidat terbaik</strong>
+                    <p>Alasan: Bu Sari sesuai mapel dan kosong di dua slot sore.</p>
+                  </div>
+                  <span class="status green">Aman</span>
+                </div>
+                <div class="candidate-row">
+                  <span>Selasa, 16.00–17.30</span>
+                  <strong>Bu Sari</strong>
+                </div>
+                <div class="candidate-row">
+                  <span>Kamis, 16.00–17.30</span>
+                  <strong>Bu Sari</strong>
+                </div>
+                <div class="note">
+                  Backend tetap wajib cek ulang secara transaksi saat tombol “Konfirmasi Jadwal” ditekan.
+                </div>
+                <div class="hero-actions">
+                  <span class="btn">Konfirmasi jadwal</span>
+                  <span class="btn secondary">Lihat alternatif</span>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="tagihan" class="page-section">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Billing</span>
+              <h2>Tagihan atas nama orang tua</h2>
+              <p class="lead">Karena orang tua adalah pihak pembayar, semua invoice dan pengingat pembayaran diarahkan ke data orang tua.</p>
+            </div>
+            <a class="btn" href="#tagihan">+ Buat tagihan</a>
+          </div>
+
+          <div class="panel">
+            <p class="mobile-hint">Geser tabel ke kanan untuk melihat semua kolom.</p>
+            <div class="table-scroll">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>No Tagihan</th>
+                    <th>Orang Tua</th>
+                    <th>Murid</th>
+                    <th>Paket</th>
+                    <th>Jatuh Tempo</th>
+                    <th>Status</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>INV-2026-0012</td>
+                    <td>Ibu Rina</td>
+                    <td>Raka Putra</td>
+                    <td>Matematika 2x/minggu</td>
+                    <td>30 Jun 2026</td>
+                    <td><span class="status amber">Menunggu bayar</span></td>
+                    <td><span class="mini-action">Kirim pengingat</span></td>
+                  </tr>
+                  <tr>
+                    <td>INV-2026-0013</td>
+                    <td>Pak Hendra</td>
+                    <td>Aisyah Nabila</td>
+                    <td>English Weekend</td>
+                    <td>05 Jul 2026</td>
+                    <td><span class="status green">Lunas</span></td>
+                    <td><span class="mini-action">Lihat bukti</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="chatbot" class="page-section">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Pengetahuan Chatbot</span>
+              <h2>Kontrol jawaban sales dan customer service</h2>
+              <p class="lead">Pemilik usaha mengisi fakta bisnis. Chatbot menjawab dari sumber ini, bukan mengarang.</p>
+            </div>
+            <a class="btn" href="#chatbot">+ Tambah FAQ</a>
+          </div>
+
+          <div class="knowledge-grid">
+            <article class="panel">
+              <h3>FAQ yang aktif</h3>
+              <p class="lead">Paket belajar, biaya, metode mengajar, kebijakan trial, area layanan.</p>
+              <div class="chips">
+                <span class="chip">Paket</span>
+                <span class="chip">Biaya</span>
+                <span class="chip">Guru</span>
+              </div>
+            </article>
+            <article class="panel">
+              <h3>Pertanyaan belum terjawab</h3>
+              <p class="lead">Masuk ke antrian review agar staf bisa menambahkan jawaban resmi.</p>
+              <span class="status amber">7 perlu ditinjau</span>
+            </article>
+            <article class="panel">
+              <h3>Preview jawaban</h3>
+              <p class="lead">Staf bisa mengetes jawaban chatbot sebelum dipublikasikan ke WhatsApp.</p>
+              <span class="status blue">Mode simulasi</span>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
