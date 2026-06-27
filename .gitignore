@@ -1,0 +1,30 @@
+# macOS and editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Node.js
+node_modules/
+dist/
+coverage/
+
+# Runtime data and secrets
+.env
+.env.*
+!.env.example
+data/
+uploads/
+*.sqlite3
+*.db
+
+# Generated files
+output/
+tmp/
