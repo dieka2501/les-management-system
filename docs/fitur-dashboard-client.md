@@ -16,6 +16,7 @@ Dokumen ini mencatat kebutuhan dashboard yang akan dipakai staf perusahaan les n
 | Menu | Tujuan utama | Aksi utama |
 | --- | --- | --- |
 | Beranda | Melihat pendaftaran baru, jadwal hari ini, tagihan jatuh tempo, dan pengingat gagal | Buka pekerjaan yang perlu ditangani |
+| Cabang | Mengelola cabang/lokasi lembaga | Tambah/edit/arsipkan cabang |
 | Pendaftaran | Meninjau pendaftaran hasil chatbot/form | Setujui, minta kelengkapan, batalkan, ubah menjadi murid aktif |
 | Orang Tua & Murid | Mengelola data keluarga dan enrollment | Tambah/edit orang tua, tambah/edit murid, pilih mapel/paket |
 | Guru | Mengelola data guru dan ketersediaannya | Tambah/edit/nonaktifkan guru, atur mapel ajar dan availability |
@@ -28,6 +29,37 @@ Dokumen ini mencatat kebutuhan dashboard yang akan dipakai staf perusahaan les n
 Menu “Pengetahuan Chatbot” dapat dibatasi untuk Admin. Menu teknis seperti database explorer, log mentah API, token, dan konfigurasi integrasi tidak menjadi bagian dari dashboard operasional.
 
 ## Penambahan fitur yang diminta
+
+### 0. CRUD Cabang
+
+Cabang menjadi scope utama data operasional. Sistem tidak cukup menyimpan teks kota di setiap data, karena satu kota bisa memiliki lebih dari satu cabang. Data orang tua, murid, guru, jadwal, pendaftaran, tagihan, dan pengingat sebaiknya memakai `branch_id`.
+
+**Data cabang**
+
+- Kode cabang (otomatis)
+- Nama cabang
+- Alamat cabang
+- Kota/Kabupaten
+- Status aktif/nonaktif
+
+**Contoh cabang**
+
+- Cabang Jalan Kenangan, Kota Tasikmalaya
+- Cabang Jalan Delima, Kabupaten Tasik
+- Cabang Jalan Seram, Kota Bandung
+
+**Aturan bisnis**
+
+- Setiap data operasional wajib memiliki cabang.
+- Jadwal tahap MVP hanya boleh dibuat jika murid dan guru berada di cabang yang sama.
+- Jika nanti ada kelas online lintas cabang, aturan tersebut harus dibuat eksplisit, misalnya `allow_cross_branch_online = true`.
+- Cabang yang masih memiliki jadwal aktif tidak boleh dihapus permanen; gunakan arsip/nonaktif.
+
+**Layar sederhana**
+
+- Daftar cabang dengan pencarian nama/kota.
+- Form tambah/edit cabang.
+- Ringkasan jumlah murid, guru, dan jadwal aktif per cabang.
 
 ### 1. CRUD Guru
 
@@ -156,7 +188,8 @@ Fitur dashboard dianggap siap dipakai ketika staf non-teknis dapat:
 
 1. Menerima pendaftaran chatbot dan mengubahnya menjadi orang tua, murid, serta enrollment tanpa memasukkan data ulang.
 2. Menambah guru beserta mata pelajaran dan waktu mengajarnya.
-3. Membuat jadwal manual yang menolak guru/murid bentrok dengan penjelasan yang mudah dimengerti.
-4. Meminta generator untuk menghasilkan kandidat jadwal tanpa bentrok dan menyimpan kandidat yang disetujui.
-5. Menemukan data keluarga, guru, dan jadwal melalui pencarian/filter sederhana.
-6. Melihat pekerjaan harian serta status pengingat tanpa membuka halaman teknis.
+3. Mengelompokkan orang tua, murid, guru, dan jadwal berdasarkan cabang.
+4. Membuat jadwal manual yang menolak guru/murid bentrok dengan penjelasan yang mudah dimengerti.
+5. Meminta generator untuk menghasilkan kandidat jadwal tanpa bentrok dan menyimpan kandidat yang disetujui.
+6. Menemukan data keluarga, guru, dan jadwal melalui pencarian/filter sederhana.
+7. Melihat pekerjaan harian serta status pengingat tanpa membuka halaman teknis.

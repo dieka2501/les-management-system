@@ -76,22 +76,25 @@ Hasil analisis ISP menunjukkan beberapa risiko yang perlu dicegah dari awal.
 
 | Entitas | Data utama | Relasi dan aturan penting |
 | --- | --- | --- |
-| `parents` | kode, nama, email, telepon, alamat | Satu orang tua dapat memiliki banyak murid |
-| `students` | kode, nama, tempat/tanggal lahir, jenis kelamin, parent_id, status | Wajib memiliki tepat satu orang tua utama pada tahap awal |
+| `branches` | kode, nama cabang, alamat, kota/kabupaten, status | Scope operasional untuk data multi-kota/multi-cabang |
+| `parents` | kode, branch_id, nama, email, telepon, alamat | Satu orang tua dapat memiliki banyak murid |
+| `students` | kode, branch_id, nama, tempat/tanggal lahir, jenis kelamin, parent_id, status | Wajib memiliki tepat satu orang tua utama pada tahap awal |
 | `subjects` | kode, nama, deskripsi, status aktif | Dipakai paket, guru, dan jadwal |
-| `tutors` | kode, nama, tanggal lahir, jenis kelamin, pendidikan, status | Guru dapat mengajar banyak mata pelajaran |
+| `tutors` | kode, branch_id, nama, tanggal lahir, jenis kelamin, pendidikan, status | Guru dapat mengajar banyak mata pelajaran |
 | `tutor_subjects` | tutor_id, subject_id, kompetensi/level | Kombinasi unik per guru dan mata pelajaran |
 | `tutor_availabilities` | tutor_id, hari, jam mulai/selesai | Menjadi sumber kandidat generator jadwal |
 | `learning_packages` | kode, nama, biaya, durasi sesi, frekuensi, status | Paket menentukan kuota/frekuensi dan mapel yang ditawarkan |
 | `enrollments` | student_id, package_id, status mulai/akhir | Satu murid dapat memiliki beberapa mapel melalui detail enrollment |
 | `enrollment_subjects` | enrollment_id, subject_id | Mencatat mapel yang benar-benar dipilih murid |
-| `schedules` | kode, student_id, tutor_id, subject_id, hari, jam mulai/selesai, mode, status | Tidak boleh berbenturan untuk guru atau murid |
-| `registrations` | sumber, parent data sementara, student data sementara, paket/mapel, status, PIC | Hasil chatbot harus dapat dikonversi menjadi master data tanpa input ulang |
+| `schedules` | kode, branch_id, student_id, tutor_id, subject_id, hari, jam mulai/selesai, mode, status | Tidak boleh berbenturan untuk guru atau murid; tahap MVP wajib satu cabang |
+| `registrations` | branch_id, sumber, parent data sementara, student data sementara, paket/mapel, status, PIC | Hasil chatbot harus dapat dikonversi menjadi master data tanpa input ulang |
 | `invoices` dan `payments` | orang tua penagih, periode, nominal, status, metode bayar | Billing ditujukan kepada orang tua, bukan anak |
 | `reminders` | penerima, jenis, waktu kirim, status, isi pesan | Catat seluruh upaya kirim untuk audit dan retry |
 | `conversations` dan `conversation_states` | nomor, pesan, intent, state, jawaban, expiry | Dipisahkan dari data master, tetapi terhubung ke parent/registration bila cocok |
 
 Semua kode bisnis (`kode orang tua`, `kode anak`, `kode guru`, dan seterusnya) dibuat di server, unik, dan tidak dipakai sebagai primary key internal. Gunakan ID internal untuk relasi serta kode yang mudah dibaca manusia untuk operasi sehari-hari.
+
+Catatan cabang: gunakan `branch_id` sebagai sumber otoritas, bukan teks kota bebas. Kota/kabupaten disimpan di master `branches`, karena satu kota dapat memiliki beberapa cabang. Pada tahap MVP, jadwal hanya valid bila murid dan guru berada pada cabang yang sama. Mode online lintas cabang dapat ditambahkan nanti sebagai aturan eksplisit.
 
 ## Workflow pendaftaran dari chatbot
 
@@ -153,6 +156,7 @@ backend/
     services/
     domain/
       registrations/
+      branches/
       parents/
       students/
       tutors/

@@ -10,6 +10,7 @@ Provider atau perusahaan penyedia layanan les belajar anak-anak.
 Orang tua yang ingin mendaftarkan anaknya ke les belajar
 
 # Feature
+- Login Client admin.
 - Chatbot yang berperan sebagai customer service dan sales agent
 - Pencatatan pendaftaran anak hasil dari chatbot
 - Menampilkan dan mengatur pendaftaran
