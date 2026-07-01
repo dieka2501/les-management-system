@@ -1,0 +1,10 @@
+# Les Management System Python dependencies
+#
+# MVP saat ini belum membutuhkan package pihak ketiga.
+# Backend memakai Python standard library:
+# - http.server
+# - sqlite3
+# - unittest
+#
+# File ini tetap disediakan agar setup venv konsisten:
+# python3 -m pip install -r requirements.txt

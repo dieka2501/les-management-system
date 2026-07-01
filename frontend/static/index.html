@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard Operasional Les</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">LB</div>
+          <div>
+            <strong>Les Belajar</strong>
+            <span>Dashboard Operasional</span>
+          </div>
+        </div>
+        <nav class="nav">
+          <a href="#beranda">🏠 Beranda</a>
+          <a href="#cabang">🏢 Cabang</a>
+          <a href="#orang-tua">👨‍👩‍👧 Orang Tua</a>
+          <a href="#murid">🎒 Murid</a>
+          <a href="#guru">👩‍🏫 Guru</a>
+          <a href="#jadwal">📅 Jadwal</a>
+          <a href="#generator">⚡ Generate Jadwal</a>
+        </nav>
+        <div class="sidebar-note">
+          <strong>Status MVP</strong>
+          <p>Data tersimpan di SQLite lokal. Generator jadwal sudah menolak bentrok guru dan murid.</p>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <span class="eyebrow">MVP Aplikasi</span>
+            <h1>Dashboard Operasional Les</h1>
+            <p>Mulai dari data operasional inti: orang tua, murid, guru, dan jadwal.</p>
+          </div>
+          <button class="btn secondary" id="refreshButton">Refresh data</button>
+        </header>
+
+        <div id="toast" class="toast" hidden></div>
+
+        <section id="beranda" class="section">
+          <div class="metric-grid">
+            <article class="metric-card">
+              <span>Orang tua aktif</span>
+              <strong id="metricParents">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>Murid aktif</span>
+              <strong id="metricStudents">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>Guru aktif</span>
+              <strong id="metricTutors">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>Jadwal aktif</span>
+              <strong id="metricSchedules">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>Cabang aktif</span>
+              <strong id="metricBranches">0</strong>
+            </article>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Jadwal belajar aktif</h2>
+                <p>Jadwal yang tampil di sini sudah melewati validasi anti-bentrok.</p>
+              </div>
+            </div>
+            <div id="scheduleList" class="card-list"></div>
+          </div>
+        </section>
+
+        <section id="cabang" class="section two-col">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>CRUD Cabang</h2>
+                <p>Cabang menjadi scope data operasional: orang tua, murid, guru, dan jadwal.</p>
+              </div>
+            </div>
+            <form id="branchForm" class="form-grid">
+              <label>
+                Nama cabang
+                <input name="name" required placeholder="Contoh: Cabang Jalan Kenangan" />
+              </label>
+              <label>
+                Kota/Kabupaten
+                <input name="city" required placeholder="Contoh: Kota Tasikmalaya" />
+              </label>
+              <label class="span-2">
+                Alamat cabang
+                <input name="address" required placeholder="Contoh: Jalan Kenangan" />
+              </label>
+              <button class="btn" type="submit" id="branchSubmitButton">Simpan cabang</button>
+              <button class="btn secondary" type="button" id="branchCancelEdit" hidden>Batal edit</button>
+            </form>
+          </div>
+
+          <div class="panel">
+            <h2>Daftar cabang</h2>
+            <div id="branchList" class="card-list"></div>
+          </div>
+        </section>
+
+        <section id="orang-tua" class="section two-col">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>CRUD Orang Tua</h2>
+                <p>Data ini menjadi kontak utama dan alamat billing.</p>
+              </div>
+            </div>
+            <form id="parentForm" class="form-grid">
+              <label>
+                Cabang
+                <select name="branch_id" id="parentBranchSelect" required></select>
+              </label>
+              <label>
+                Nama lengkap
+                <input name="full_name" required placeholder="Contoh: Ibu Rina Kusuma" />
+              </label>
+              <label>
+                No. telepon/WhatsApp
+                <input name="phone" required placeholder="0812xxxx" />
+              </label>
+              <label>
+                Email
+                <input name="email" type="email" placeholder="nama@email.com" />
+              </label>
+              <label>
+                Alamat rumah
+                <input name="address" placeholder="Alamat lengkap" />
+              </label>
+              <button class="btn" type="submit" id="parentSubmitButton">Simpan orang tua</button>
+              <button class="btn secondary" type="button" id="parentCancelEdit" hidden>Batal edit</button>
+            </form>
+          </div>
+
+          <div class="panel">
+            <h2>Daftar orang tua</h2>
+            <div id="parentList" class="card-list"></div>
+          </div>
+        </section>
+
+        <section id="murid" class="section two-col">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>CRUD Murid</h2>
+                <p>Satu murid bisa mengambil beberapa mata pelajaran.</p>
+              </div>
+            </div>
+            <form id="studentForm" class="form-grid">
+              <label>
+                Cabang
+                <select name="branch_id" id="studentBranchSelect" required></select>
+              </label>
+              <label>
+                Orang tua
+                <select name="parent_id" id="studentParentSelect" required></select>
+              </label>
+              <label>
+                Nama murid
+                <input name="full_name" required placeholder="Contoh: Raka Putra" />
+              </label>
+              <label>
+                Tempat lahir
+                <input name="birthplace" placeholder="Bandung" />
+              </label>
+              <label>
+                Tanggal lahir
+                <input name="birthdate" type="date" />
+              </label>
+              <label>
+                Jenis kelamin
+                <select name="gender">
+                  <option value="">Pilih</option>
+                  <option>Laki-laki</option>
+                  <option>Perempuan</option>
+                </select>
+              </label>
+              <label>
+                Mata pelajaran
+                <select name="subject_ids" id="studentSubjectSelect" multiple required></select>
+              </label>
+              <label class="span-2">
+                Catatan kebutuhan belajar
+                <textarea name="notes" rows="3" placeholder="Contoh: butuh jadwal sore, fokus matematika dasar"></textarea>
+              </label>
+              <button class="btn" type="submit" id="studentSubmitButton">Simpan murid</button>
+              <button class="btn secondary" type="button" id="studentCancelEdit" hidden>Batal edit</button>
+            </form>
+          </div>
+
+          <div class="panel">
+            <h2>Daftar murid</h2>
+            <div id="studentList" class="card-list"></div>
+          </div>
+        </section>
+
+        <section id="guru" class="section two-col">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>CRUD Guru</h2>
+                <p>Mapel dan availability guru dipakai oleh generator jadwal.</p>
+              </div>
+            </div>
+            <form id="tutorForm" class="form-grid">
+              <label>
+                Cabang
+                <select name="branch_id" id="tutorBranchSelect" required></select>
+              </label>
+              <label>
+                Nama guru
+                <input name="full_name" required placeholder="Contoh: Bu Sari" />
+              </label>
+              <label>
+                Pendidikan
+                <input name="education" placeholder="S1 Pendidikan Matematika" />
+              </label>
+              <label>
+                Tanggal lahir
+                <input name="birthdate" type="date" />
+              </label>
+              <label>
+                Jenis kelamin
+                <select name="gender">
+                  <option value="">Pilih</option>
+                  <option>Laki-laki</option>
+                  <option>Perempuan</option>
+                </select>
+              </label>
+              <label>
+                Mata pelajaran
+                <select name="subject_ids" id="tutorSubjectSelect" multiple required></select>
+              </label>
+              <label>
+                Hari tersedia
+                <select name="availability_day">
+                  <option value="0">Senin</option>
+                  <option value="1">Selasa</option>
+                  <option value="2">Rabu</option>
+                  <option value="3">Kamis</option>
+                  <option value="4">Jumat</option>
+                  <option value="5">Sabtu</option>
+                  <option value="6">Minggu</option>
+                </select>
+              </label>
+              <label>
+                Mulai tersedia
+                <input name="availability_start" type="time" value="15:00" required />
+              </label>
+              <label>
+                Selesai tersedia
+                <input name="availability_end" type="time" value="19:00" required />
+              </label>
+              <label class="span-2">
+                Catatan internal
+                <textarea name="notes" rows="3"></textarea>
+              </label>
+              <button class="btn" type="submit" id="tutorSubmitButton">Simpan guru</button>
+              <button class="btn secondary" type="button" id="tutorCancelEdit" hidden>Batal edit</button>
+            </form>
+          </div>
+
+          <div class="panel">
+            <h2>Daftar guru</h2>
+            <div id="tutorList" class="card-list"></div>
+          </div>
+        </section>
+
+        <section id="jadwal" class="section two-col">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Buat Jadwal Manual</h2>
+                <p>Backend akan menolak jika guru/murid bentrok atau guru tidak available.</p>
+              </div>
+            </div>
+            <form id="scheduleForm" class="form-grid">
+              <label>
+                Cabang
+                <select name="branch_id" id="scheduleBranchSelect" required></select>
+              </label>
+              <label>
+                Murid
+                <select name="student_id" id="scheduleStudentSelect" required></select>
+              </label>
+              <label>
+                Guru
+                <select name="tutor_id" id="scheduleTutorSelect" required></select>
+              </label>
+              <label>
+                Mata pelajaran
+                <select name="subject_id" id="scheduleSubjectSelect" required></select>
+              </label>
+              <label>
+                Hari
+                <select name="day_of_week">
+                  <option value="0">Senin</option>
+                  <option value="1">Selasa</option>
+                  <option value="2">Rabu</option>
+                  <option value="3">Kamis</option>
+                  <option value="4">Jumat</option>
+                  <option value="5">Sabtu</option>
+                  <option value="6">Minggu</option>
+                </select>
+              </label>
+              <label>
+                Jam mulai
+                <input name="start_time" type="time" value="16:00" required />
+              </label>
+              <label>
+                Jam selesai
+                <input name="end_time" type="time" value="17:30" required />
+              </label>
+              <label>
+                Mode
+                <select name="mode">
+                  <option value="online">Online</option>
+                  <option value="rumah">Rumah murid</option>
+                  <option value="kelas">Kelas</option>
+                </select>
+              </label>
+              <label>
+                Lokasi
+                <input name="location" placeholder="Opsional" />
+              </label>
+              <button class="btn" type="submit" id="scheduleSubmitButton">Simpan jadwal</button>
+              <button class="btn secondary" type="button" id="scheduleCancelEdit" hidden>Batal edit</button>
+            </form>
+          </div>
+
+          <div class="panel">
+            <h2>Aturan validasi</h2>
+            <ul class="check-list">
+              <li>Guru harus mengajar mapel yang dipilih.</li>
+              <li>Murid harus mengambil mapel tersebut.</li>
+              <li>Slot wajib masuk availability guru.</li>
+              <li>Guru tidak boleh punya jadwal aktif yang tumpang tindih.</li>
+              <li>Murid tidak boleh punya jadwal aktif yang tumpang tindih.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="generator" class="section two-col">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Generate Jadwal Otomatis</h2>
+                <p>Sistem memberi kandidat dulu. Admin tetap harus konfirmasi.</p>
+              </div>
+            </div>
+            <form id="generatorForm" class="form-grid">
+              <label>
+                Cabang
+                <select name="branch_id" id="generatorBranchSelect" required></select>
+              </label>
+              <label>
+                Murid
+                <select name="student_id" id="generatorStudentSelect" required></select>
+              </label>
+              <label>
+                Mata pelajaran
+                <select name="subject_id" id="generatorSubjectSelect" required></select>
+              </label>
+              <label>
+                Sesi per minggu
+                <input name="sessions_per_week" type="number" min="1" max="7" value="2" />
+              </label>
+              <label>
+                Durasi menit
+                <input name="duration_minutes" type="number" min="30" step="30" value="90" />
+              </label>
+              <label>
+                Jam paling awal
+                <input name="preferred_start" type="time" value="15:00" />
+              </label>
+              <label>
+                Jam paling akhir
+                <input name="preferred_end" type="time" value="19:00" />
+              </label>
+              <label class="span-2">
+                Preferensi hari
+                <select name="preferred_days" id="generatorDaySelect" multiple>
+                  <option value="0" selected>Senin</option>
+                  <option value="1" selected>Selasa</option>
+                  <option value="2">Rabu</option>
+                  <option value="3" selected>Kamis</option>
+                  <option value="4">Jumat</option>
+                  <option value="5">Sabtu</option>
+                  <option value="6">Minggu</option>
+                </select>
+              </label>
+              <button class="btn" type="submit">Cari kandidat jadwal</button>
+            </form>
+          </div>
+
+          <div class="panel">
+            <h2>Kandidat jadwal</h2>
+            <div id="candidateList" class="card-list">
+              <div class="empty-state">Belum ada kandidat. Isi form lalu klik cari.</div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
