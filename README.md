@@ -90,7 +90,7 @@ IG_ACCESS_TOKEN=
 IG_USER_ID=
 IG_REPLY_MODE=
 IG_SEND_ENABLED=0
-IG_GRAPH_API_VERSION=v24.0
+IG_GRAPH_API_VERSION=v25.0
 ```
 
 Catatan penting: `.env` masuk `.gitignore` karena bisa berisi API key/token. Untuk production, isi secret langsung di server atau secret manager deployment.
@@ -311,7 +311,7 @@ IG_ACCESS_TOKEN=access-token-instagram-atau-page
 IG_USER_ID=id-instagram-professional-account
 IG_REPLY_MODE=gemini
 IG_SEND_ENABLED=1
-IG_GRAPH_API_VERSION=v24.0
+IG_GRAPH_API_VERSION=v25.0
 ```
 
 Catatan:
@@ -321,7 +321,7 @@ Catatan:
 - `IG_ACCESS_TOKEN` jangan pernah dicommit ke git.
 - `IG_REPLY_MODE` bisa `gemini` atau `rule_based`.
 - `IG_SEND_ENABLED=0` berguna untuk dry run: webhook diterima dan diproses, tapi backend tidak mengirim balasan ke Instagram.
-- `IG_GRAPH_API_VERSION` default-nya `v24.0`, jadi boleh tidak diset kalau ingin pakai default.
+- `IG_GRAPH_API_VERSION` default-nya `v25.0`, jadi boleh tidak diset kalau ingin pakai default.
 
 Contoh menjalankan lokal:
 
@@ -389,7 +389,7 @@ Langkah ringkas:
 9. Ambil `IG_USER_ID`, yaitu ID Instagram Professional Account. Pada Page flow, biasanya bisa dicek dengan Graph API:
 
 ```bash
-curl "https://graph.facebook.com/v24.0/me/accounts?fields=name,access_token,tasks,instagram_business_account&access_token=USER_ACCESS_TOKEN"
+curl "https://graph.facebook.com/v25.0/me/accounts?fields=name,access_token,tasks,instagram_business_account&access_token=USER_ACCESS_TOKEN"
 ```
 
 Copy:
@@ -400,7 +400,7 @@ Copy:
 Setelah `IG_USER_ID` dan `IG_ACCESS_TOKEN` ada, subscribe akun Instagram ke webhook:
 
 ```bash
-curl -X POST "https://graph.instagram.com/v24.0/$IG_USER_ID/subscribed_apps?subscribed_fields=messages,messaging_postbacks&access_token=$IG_ACCESS_TOKEN"
+curl -X POST "https://graph.instagram.com/v25.0/$IG_USER_ID/subscribed_apps?subscribed_fields=messages,messaging_postbacks&access_token=$IG_ACCESS_TOKEN"
 ```
 
 Response sukses biasanya:
@@ -440,7 +440,7 @@ Artinya event yang masuk adalah tanda pesan dibaca (`read receipt`), bukan pesan
 "candidate_key_sets": ["message_edit,timestamp"]
 ```
 
-Artinya event yang masuk adalah edit pesan (`message_edit`), bukan payload pesan normal. Event ini sebaiknya tidak dianggap sebagai pertanyaan baru kecuali nanti diputuskan untuk mendukung jawaban dari pesan yang diedit.
+Artinya event yang masuk adalah edit pesan (`message_edit`), bukan payload pesan normal. Jika event ini hanya membawa `mid` tanpa teks dan sender, backend akan mencoba mengambil detail pesan lewat Message Detail API. Log tetap hanya menampilkan ringkasan `message_detail_fetch`, tidak menampilkan isi DM atau ID pesan lengkap.
 
 Payload DM teks normal yang diproses chatbot seharusnya memiliki `message.text`, dan diagnostic idealnya mendekati:
 

@@ -10,8 +10,9 @@ from urllib import error, request
 from urllib.parse import parse_qs, quote, urlencode
 
 
-DEFAULT_INSTAGRAM_API_VERSION = "v24.0"
+DEFAULT_INSTAGRAM_API_VERSION = "v25.0"
 INSTAGRAM_SEND_ENDPOINT_TEMPLATE = "https://graph.instagram.com/{version}/{ig_user_id}/messages"
+INSTAGRAM_MESSAGE_DETAIL_ENDPOINT_TEMPLATE = "https://graph.instagram.com/{version}/{message_id}"
 
 
 class InstagramWebhookError(Exception):
@@ -30,6 +31,21 @@ class InstagramSendError(InstagramWebhookError):
     """Raised when sending a reply to Instagram fails."""
 
 
+class InstagramMessageFetchError(InstagramWebhookError):
+    """Raised when fetching an Instagram message detail fails."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        error_type: str = "unknown",
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.error_type = error_type
+
+
 @dataclass(frozen=True)
 class InstagramMessageEvent:
     sender_id: str
@@ -37,6 +53,13 @@ class InstagramMessageEvent:
     text: str
     message_id: str | None = None
     timestamp: int | None = None
+
+
+@dataclass(frozen=True)
+class InstagramMessageDetailReference:
+    message_id: str
+    fallback_recipient_id: str | None = None
+    fallback_timestamp: int | None = None
 
 
 def instagram_verify_token() -> str | None:
@@ -134,6 +157,39 @@ def extract_instagram_message_events(payload: dict[str, Any]) -> list[InstagramM
             if event is not None:
                 events.append(event)
     return events
+
+
+def extract_instagram_message_detail_references(payload: dict[str, Any]) -> list[InstagramMessageDetailReference]:
+    references: list[InstagramMessageDetailReference] = []
+    seen_message_ids: set[str] = set()
+    for entry in payload.get("entry", []) or []:
+        if not isinstance(entry, dict):
+            continue
+        for candidate in iter_instagram_message_candidates(entry):
+            if parse_instagram_message_candidate(candidate, entry) is not None:
+                continue
+            message_edit = candidate.get("message_edit") or {}
+            if not isinstance(message_edit, dict):
+                continue
+            message_id = str(message_edit.get("mid") or message_edit.get("id") or "").strip()
+            if not message_id or message_id in seen_message_ids:
+                continue
+            seen_message_ids.add(message_id)
+            references.append(
+                InstagramMessageDetailReference(
+                    message_id=message_id,
+                    fallback_recipient_id=(
+                        nested_id(candidate.get("recipient"))
+                        or str(candidate.get("recipient_id") or "").strip()
+                        or str(entry.get("id") or "").strip()
+                        or None
+                    ),
+                    fallback_timestamp=coerce_optional_int(
+                        candidate.get("timestamp") or message_edit.get("timestamp") or entry.get("time")
+                    ),
+                )
+            )
+    return references
 
 
 def iter_instagram_message_candidates(entry: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -240,6 +296,34 @@ def nested_id(value: Any) -> str:
     if isinstance(value, dict):
         return str(value.get("id") or "").strip()
     return str(value or "").strip()
+
+
+def nested_first_id(value: Any) -> str:
+    if isinstance(value, dict):
+        direct_id = str(value.get("id") or "").strip()
+        if direct_id:
+            return direct_id
+        data = value.get("data")
+        if isinstance(data, list):
+            for item in data:
+                item_id = nested_first_id(item)
+                if item_id:
+                    return item_id
+    if isinstance(value, list):
+        for item in value:
+            item_id = nested_first_id(item)
+            if item_id:
+                return item_id
+    return str(value or "").strip()
+
+
+def coerce_optional_int(value: Any) -> int | None:
+    try:
+        if value is None or value == "":
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def summarize_instagram_webhook_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -352,6 +436,91 @@ def summarize_instagram_webhook_payload(payload: dict[str, Any]) -> dict[str, An
         "missing_sender_candidates": missing_sender_candidates,
         "missing_recipient_candidates": missing_recipient_candidates,
     }
+
+
+def fetch_instagram_message_detail(
+    message_id: str,
+    *,
+    access_token: str | None = None,
+) -> dict[str, Any]:
+    resolved_access_token = access_token or instagram_access_token()
+    if not resolved_access_token:
+        raise InstagramMessageFetchError("IG_ACCESS_TOKEN belum diset.", error_type="missing_access_token")
+
+    endpoint = INSTAGRAM_MESSAGE_DETAIL_ENDPOINT_TEMPLATE.format(
+        version=quote(instagram_api_version(), safe="v0123456789."),
+        message_id=quote(str(message_id), safe=""),
+    )
+    query = urlencode(
+        {
+            "fields": "id,created_time,from,to,message",
+            "access_token": resolved_access_token,
+        }
+    )
+    api_request = request.Request(f"{endpoint}?{query}", method="GET")
+    try:
+        with request.urlopen(api_request, timeout=20) as response:
+            response_body = response.read().decode("utf-8")
+    except error.HTTPError as exc:
+        exc.read()
+        raise InstagramMessageFetchError(
+            "Instagram Message Detail API gagal.",
+            status_code=exc.code,
+            error_type="http_error",
+        ) from exc
+    except error.URLError as exc:
+        raise InstagramMessageFetchError(
+            "Tidak bisa menghubungi Instagram Message Detail API.",
+            error_type="network_error",
+        ) from exc
+    except TimeoutError as exc:
+        raise InstagramMessageFetchError(
+            "Request ke Instagram Message Detail API timeout.",
+            error_type="timeout",
+        ) from exc
+
+    try:
+        payload = json.loads(response_body)
+    except json.JSONDecodeError as exc:
+        raise InstagramMessageFetchError(
+            "Response Instagram Message Detail API bukan JSON valid.",
+            error_type="invalid_json",
+        ) from exc
+    if not isinstance(payload, dict):
+        raise InstagramMessageFetchError(
+            "Response Instagram Message Detail API bukan object JSON.",
+            error_type="invalid_json",
+        )
+    return payload
+
+
+def instagram_message_detail_to_event(
+    message_detail: Mapping[str, Any],
+    reference: InstagramMessageDetailReference,
+) -> InstagramMessageEvent | None:
+    text = str(message_detail.get("message") or "").strip()
+    if not text:
+        return None
+
+    sender_id = nested_first_id(message_detail.get("from"))
+    recipient_id = nested_first_id(message_detail.get("to")) or reference.fallback_recipient_id or ""
+    if not sender_id or not recipient_id:
+        return None
+
+    return InstagramMessageEvent(
+        sender_id=sender_id,
+        recipient_id=recipient_id,
+        text=text,
+        message_id=str(message_detail.get("id") or reference.message_id or "").strip() or None,
+        timestamp=reference.fallback_timestamp,
+    )
+
+
+def safe_instagram_fetch_error(exc: InstagramMessageFetchError) -> dict[str, Any]:
+    payload: dict[str, Any] = {"type": exc.error_type}
+    if exc.status_code is not None:
+        payload["status_code"] = exc.status_code
+    return payload
 
 
 def send_instagram_text_message(

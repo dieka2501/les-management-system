@@ -15,7 +15,7 @@ from .provider_auth import (
     make_provider_logout_cookie,
     provider_auth_required,
 )
-from .store import LesStore, NotFoundError, ValidationError
+from .store import LesStore, NotFoundError, ValidationError, safe_instagram_webhook_log_result
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -132,7 +132,10 @@ class LesRequestHandler(BaseHTTPRequestHandler):
             if path == "/webhooks/instagram":
                 raw_body = self.read_raw_body()
                 result = self.store.handle_instagram_webhook(raw_body, self.headers)
-                print(f"Instagram webhook processed: {json.dumps(result, ensure_ascii=False)}")
+                print(
+                    "Instagram webhook processed: "
+                    f"{json.dumps(safe_instagram_webhook_log_result(result), ensure_ascii=False)}"
+                )
                 self.send_text("EVENT_RECEIVED")
                 return
 

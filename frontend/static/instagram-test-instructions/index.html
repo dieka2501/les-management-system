@@ -72,8 +72,9 @@
             webhook di server.
           </p>
           <p>
-            Jika log webhook hanya menampilkan <span class="code">read</span> atau <span class="code">message_edit</span>,
-            itu bukan pesan teks baru. Payload yang diproses chatbot harus memiliki <span class="code">message.text</span>.
+            Jika log webhook hanya menampilkan <span class="code">read</span>, itu bukan pesan teks baru.
+            Jika event <span class="code">message_edit</span> hanya membawa <span class="code">mid</span>,
+            backend akan mencoba mengambil detail pesan secara aman tanpa menulis isi DM lengkap ke log.
           </p>
         </section>
 

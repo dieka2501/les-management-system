@@ -12,13 +12,18 @@ from .database import connect, migrate, seed_master_data
 from .gemini_chatbot import GeminiConfigurationError, GeminiServiceError, simulate_provider_ai_reply
 from .instagram_webhook import (
     InstagramMessageEvent,
+    InstagramMessageFetchError,
     InstagramSendError,
     InstagramWebhookError,
     InstagramWebhookSignatureError,
     extract_instagram_message_events,
+    extract_instagram_message_detail_references,
+    fetch_instagram_message_detail,
+    instagram_message_detail_to_event,
     instagram_reply_mode,
     instagram_send_enabled,
     parse_instagram_webhook_payload,
+    safe_instagram_fetch_error,
     send_instagram_text_message,
     summarize_instagram_webhook_payload,
     verify_instagram_challenge,
@@ -52,6 +57,37 @@ def row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
 
 def rows_to_dicts(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
+
+
+def safe_instagram_webhook_log_result(result: dict[str, Any]) -> dict[str, Any]:
+    safe_results = []
+    for item in result.get("results", []) or []:
+        if not isinstance(item, dict):
+            continue
+        send_result = item.get("send_result") if isinstance(item.get("send_result"), dict) else {}
+        safe_results.append(
+            {
+                "status": item.get("status", "processed"),
+                "reply_mode": item.get("reply_mode"),
+                "intent": item.get("intent"),
+                "stage": item.get("stage"),
+                "sent": bool(item.get("sent")),
+                "send": {
+                    "enabled": bool(send_result.get("enabled")),
+                    "sent": bool(send_result.get("sent")),
+                    "has_error": bool(send_result.get("error")),
+                },
+            }
+        )
+
+    return {
+        "object": result.get("object"),
+        "signature": result.get("signature"),
+        "events_received": result.get("events_received"),
+        "diagnostics": result.get("diagnostics"),
+        "message_detail_fetch": result.get("message_detail_fetch"),
+        "results": safe_results,
+    }
 
 
 def coerce_int(value: Any, field_name: str) -> int:
@@ -1162,6 +1198,8 @@ class LesStore:
             payload = parse_instagram_webhook_payload(raw_body)
             events = extract_instagram_message_events(payload)
             diagnostics = summarize_instagram_webhook_payload(payload)
+            fetched_events, message_detail_fetch = self.fetch_instagram_message_detail_events(payload, events)
+            events.extend(fetched_events)
         except InstagramWebhookSignatureError as exc:
             raise PermissionError(str(exc)) from exc
         except InstagramWebhookError as exc:
@@ -1173,8 +1211,48 @@ class LesStore:
             "signature": signature_status,
             "events_received": len(events),
             "diagnostics": diagnostics,
+            "message_detail_fetch": message_detail_fetch,
             "results": results,
         }
+
+    def fetch_instagram_message_detail_events(
+        self,
+        payload: dict[str, Any],
+        existing_events: list[InstagramMessageEvent],
+    ) -> tuple[list[InstagramMessageEvent], dict[str, Any]]:
+        references = extract_instagram_message_detail_references(payload)
+        known_message_ids = {event.message_id for event in existing_events if event.message_id}
+        fetched_events: list[InstagramMessageEvent] = []
+        summary: dict[str, Any] = {
+            "references": len(references),
+            "attempted": 0,
+            "resolved": 0,
+            "skipped_existing": 0,
+            "empty_or_incomplete": 0,
+            "errors": [],
+        }
+
+        for reference in references:
+            if reference.message_id in known_message_ids:
+                summary["skipped_existing"] += 1
+                continue
+            summary["attempted"] += 1
+            try:
+                message_detail = fetch_instagram_message_detail(reference.message_id)
+            except InstagramMessageFetchError as exc:
+                summary["errors"].append(safe_instagram_fetch_error(exc))
+                continue
+
+            event = instagram_message_detail_to_event(message_detail, reference)
+            if event is None:
+                summary["empty_or_incomplete"] += 1
+                continue
+
+            known_message_ids.add(event.message_id or reference.message_id)
+            fetched_events.append(event)
+            summary["resolved"] += 1
+
+        return fetched_events, summary
 
     def handle_instagram_message_event(self, event: InstagramMessageEvent) -> dict[str, Any]:
         session = self.find_or_create_instagram_chat_session(event)
