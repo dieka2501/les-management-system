@@ -11,6 +11,7 @@ load_project_env()
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DB_PATH = PROJECT_ROOT / "backend" / "data" / "les.sqlite3"
+DEFAULT_RAILWAY_DB_FILENAME = "les.sqlite3"
 
 
 class ClosingConnection(sqlite3.Connection):
@@ -20,8 +21,15 @@ class ClosingConnection(sqlite3.Connection):
 
 
 def resolve_db_path(db_path: str | os.PathLike[str] | None = None) -> Path:
-    raw_path = db_path or os.environ.get("LES_DB_PATH") or DEFAULT_DB_PATH
+    raw_path = db_path or os.environ.get("LES_DB_PATH") or railway_volume_db_path() or DEFAULT_DB_PATH
     return Path(raw_path).expanduser().resolve()
+
+
+def railway_volume_db_path() -> Path | None:
+    mount_path = os.environ.get("RAILWAY_VOLUME_MOUNT_PATH")
+    if not mount_path:
+        return None
+    return Path(mount_path) / DEFAULT_RAILWAY_DB_FILENAME
 
 
 def connect(db_path: str | os.PathLike[str] | None = None) -> sqlite3.Connection:
