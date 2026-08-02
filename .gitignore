@@ -8,6 +8,7 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+env/
 .pytest_cache/
 .mypy_cache/
 
@@ -16,14 +17,16 @@ node_modules/
 dist/
 coverage/
 
-# Runtime data and secrets
+# Runtime data, logs, and secrets
 .env
 .env.*
 !.env.example
+.local/
 data/
 uploads/
 *.sqlite3
 *.db
+backend/data/*.sqlite3
 
 # Generated files
 output/

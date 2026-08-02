@@ -1,0 +1,343 @@
+{
+  "schema_version": "1.0",
+  "knowledge_id": "rumah_privat_madani",
+  "source": {
+    "type": "markdown",
+    "file": "rumah_privat_madani_chatbot_knowledge.md"
+  },
+  "business": {
+    "name": "Rumah Privat Madani",
+    "service_type": "Les privat",
+    "teaching_format": "1 anak 1 tutor",
+    "coverage_areas": ["Tasikmalaya", "Ciamis", "Singaparna"],
+    "contact": {
+      "whatsapp": "0812 8367 9665",
+      "instagram": "@rumahprivatmadani"
+    },
+    "unknown_or_unconfirmed": [
+      "durasi sesi",
+      "jam operasional",
+      "biaya pendaftaran",
+      "biaya transportasi tutor",
+      "metode online/offline",
+      "kebijakan pembatalan"
+    ]
+  },
+  "packages": [
+    {
+      "id": "calistung",
+      "name": "Les Privat Calistung",
+      "aliases": ["calistung", "baca tulis hitung", "membaca", "menulis", "berhitung"],
+      "best_for": [
+        "Anak sulit fokus saat belajar di rumah",
+        "Anak cepat bosan atau menyerah saat melihat angka atau huruf",
+        "Orang tua tidak punya cukup waktu mendampingi intensif",
+        "Anak perlu persiapan masuk SD"
+      ],
+      "materials": [
+        "Mengenal huruf, suku kata, dan membaca kalimat dengan lancar tanpa mengeja",
+        "Melatih motorik halus, memegang pensil dengan benar, dan menulis rapi",
+        "Mengenal angka, memahami konsep jumlah, penjumlahan, dan pengurangan dasar"
+      ],
+      "methods": [
+        "Multisensori: sentuhan, penglihatan, dan gerakan",
+        "Kurikulum bertahap sesuai kesiapan anak",
+        "Positive reinforcement",
+        "Laporan perkembangan anak secara berkala"
+      ],
+      "price": {
+        "status": "confirmed",
+        "currency": "IDR",
+        "amount": 55000,
+        "unit": "per_session",
+        "display": "Rp55.000 per sesi"
+      },
+      "tagline": "Bekali si kecil kepercayaan diri sebelum sekolah"
+    },
+    {
+      "id": "btq",
+      "name": "Les Privat BTQ",
+      "aliases": ["btq", "ngaji", "iqra", "al quran", "tajwid", "wudhu", "shalat"],
+      "features": [
+        "Guru berpengalaman",
+        "Pembiasaan adab",
+        "Jadwal fleksibel",
+        "Metode belajar menyenangkan",
+        "Fokus dan intensif"
+      ],
+      "levels": [
+        {
+          "id": "iqra",
+          "name": "Kelas Iqra (Dasar)",
+          "materials": [
+            "Pengenalan huruf Hijaiyah",
+            "Makhraj yang benar",
+            "Kelancaran membaca dasar"
+          ]
+        },
+        {
+          "id": "al_quran",
+          "name": "Kelas Al-Qur'an (Lanjut)",
+          "materials": [
+            "Perbaikan tajwid, termasuk mad dan idgham",
+            "Gharib",
+            "Kelancaran tadarus"
+          ]
+        }
+      ],
+      "supporting_materials": [
+        "Hafalan surat pendek",
+        "Praktik wudhu",
+        "Praktik shalat",
+        "Hafalan doa harian",
+        "Kisah teladan Nabi"
+      ],
+      "price": {
+        "status": "confirmed",
+        "currency": "IDR",
+        "amount": 55000,
+        "unit": "per_session",
+        "display": "Rp55.000 per sesi"
+      },
+      "source_notes": [
+        "Tagline bahasa Inggris pada poster BTQ tampaknya sisa template dan tidak boleh digunakan sebagai informasi program BTQ."
+      ]
+    },
+    {
+      "id": "english",
+      "name": "English Private for Children",
+      "aliases": ["english", "bahasa inggris", "inggris", "speaking", "vocabulary", "reading", "writing"],
+      "features": [
+        "Fun and interactive lessons",
+        "Latihan speaking, reading, dan writing",
+        "Vocabulary building melalui permainan dan lagu",
+        "Tutor sabar dan berpengalaman",
+        "Personalized 1-on-1"
+      ],
+      "methods": [
+        "Kurikulum standar global disesuaikan dengan usia dan perkembangan anak",
+        "Pendekatan personal sesuai kemampuan, gaya belajar, dan tujuan belajar",
+        "Laporan perkembangan anak secara berkala"
+      ],
+      "price": {
+        "status": "needs_confirmation",
+        "currency": "IDR",
+        "conflicting_amounts": [55000, 60000],
+        "unit": "per_session",
+        "display": "Harga English perlu dikonfirmasi admin karena materi promosi memuat Rp55.000 dan Rp60.000 per sesi."
+      },
+      "tagline": "Learning English becomes a fun adventure"
+    },
+    {
+      "id": "matematika",
+      "name": "Les Privat Matematika",
+      "aliases": ["matematika", "math", "pr matematika", "ujian matematika", "hots", "cambridge", "singapura"],
+      "features": [
+        "Guru berpengalaman",
+        "Konsultasi PR dan ujian",
+        "Jadwal fleksibel",
+        "Modul dan latihan soal disediakan",
+        "Latihan soal dari tingkat mudah, HOTS, hingga soal lomba"
+      ],
+      "methods": [
+        "Materi dapat disesuaikan dengan kurikulum Singapura atau Cambridge",
+        "Step by Step Mastery",
+        "Laporan perkembangan anak secara berkala"
+      ],
+      "price": {
+        "status": "confirmed",
+        "currency": "IDR",
+        "amount": 55000,
+        "unit": "per_session",
+        "display": "Rp55.000 per sesi"
+      },
+      "tagline": "Taklukkan angka, asah logika"
+    }
+  ],
+  "intents": [
+    {
+      "id": "list_packages",
+      "description": "Menjawab daftar paket Calistung, BTQ, English for Children, dan Matematika.",
+      "keywords": ["paket", "program", "les apa", "daftar les"]
+    },
+    {
+      "id": "package_recommendation",
+      "description": "Merekomendasikan paket berdasarkan kebutuhan anak.",
+      "routing": [
+        {"when": ["membaca", "menulis", "berhitung", "masuk sd"], "package": "calistung"},
+        {"when": ["iqra", "al quran", "tajwid", "ngaji", "wudhu", "shalat"], "package": "btq"},
+        {"when": ["speaking", "vocabulary", "reading", "writing", "inggris"], "package": "english"},
+        {"when": ["pr matematika", "ujian", "hots", "cambridge", "singapura"], "package": "matematika"}
+      ]
+    },
+    {
+      "id": "package_price",
+      "description": "Menjawab harga paket. Khusus English wajib menyebut perlu konfirmasi admin."
+    },
+    {
+      "id": "coverage_area",
+      "description": "Menjawab area layanan: Tasikmalaya, Ciamis, dan Singaparna."
+    },
+    {
+      "id": "learning_materials",
+      "description": "Menjawab materi, level, metode, dan target pembelajaran paket."
+    },
+    {
+      "id": "teaching_method",
+      "description": "Menjelaskan format 1 anak 1 tutor dan metode masing-masing paket."
+    },
+    {
+      "id": "progress_report",
+      "description": "Menjawab ketersediaan laporan perkembangan untuk paket yang mencantumkannya."
+    },
+    {
+      "id": "registration_contact",
+      "description": "Menangani permintaan daftar dengan meminta persetujuan diteruskan ke admin manusia."
+    },
+    {
+      "id": "contact_info",
+      "description": "Menjawab kontak resmi Rumah Privat Madani jika pengguna hanya bertanya kontak."
+    },
+    {
+      "id": "close_confirmation_prompt",
+      "description": "Menanyakan persetujuan pengguna sebelum chat diteruskan ke admin pendaftaran."
+    },
+    {
+      "id": "admin_handoff_confirmed",
+      "description": "Menutup sesi chatbot setelah pengguna setuju diteruskan ke admin."
+    },
+    {
+      "id": "admin_handoff_declined",
+      "description": "Melanjutkan mode tanya jawab jika pengguna tidak setuju diteruskan ke admin."
+    },
+    {
+      "id": "greeting",
+      "description": "Menyapa calon orang tua dan memperkenalkan chatbot Rumah Privat Madani secara singkat."
+    }
+  ],
+  "entities": {
+    "package": ["calistung", "btq", "english", "matematika"],
+    "location": ["Tasikmalaya", "Ciamis", "Singaparna"],
+    "child_age": null,
+    "school_grade": null,
+    "learning_goal": null,
+    "learning_problem": null,
+    "btq_level": ["iqra", "al_quran"],
+    "curriculum": ["nasional", "Singapura", "Cambridge", "belum diketahui"],
+    "schedule_preference": null
+  },
+  "answer_rules": [
+    "Jangan membuat informasi yang tidak terdapat dalam knowledge base.",
+    "Jangan menentukan durasi sesi, jadwal, biaya tambahan, trial class, atau metode online/offline tanpa data admin.",
+    "Jangan menetapkan harga English sebagai harga pasti.",
+    "Gunakan pertanyaan klarifikasi saat kebutuhan pengguna belum spesifik.",
+    "MVP chatbot hanya menjawab pertanyaan; jangan menawarkan promo, jangan mengajak daftar, dan jangan membuat aksi sales.",
+    "Jangan langsung menghubungkan pengguna ke admin tanpa persetujuan eksplisit.",
+    "Jika pengguna ingin daftar, tanyakan persetujuan dengan kalimat: Apakah mau diteruskan ke pendaftaran?",
+    "Jika pengguna setuju diteruskan, jawab: Baik, saya akan hubungkan ke admin."
+  ],
+  "clarification_questions": [
+    "Paket belajar apa yang sedang dicari?",
+    "Anak tinggal di Tasikmalaya, Ciamis, atau Singaparna?",
+    "Berapa usia atau kelas anak?",
+    "Kesulitan atau target belajar utamanya apa?",
+    "Untuk BTQ, anak masih belajar Iqra atau sudah membaca Al-Qur'an?",
+    "Untuk Matematika, kurikulum sekolah yang digunakan apa?"
+  ],
+  "admin_confirmation_needed": [
+    "Harga resmi paket English",
+    "Durasi satu sesi",
+    "Jadwal dan jam layanan",
+    "Apakah tutor datang ke rumah, kelas online, atau keduanya",
+    "Kecamatan/desa yang tercakup di setiap wilayah",
+    "Biaya pendaftaran dan biaya transportasi",
+    "Trial class",
+    "Sistem pembayaran",
+    "Kebijakan reschedule/cancel",
+    "Rentang usia dan jenjang kelas untuk setiap paket",
+    "Kualifikasi dan sertifikasi tutor",
+    "Mekanisme serta frekuensi laporan perkembangan"
+  ],
+  "chat_closing": {
+    "question_threshold": 10,
+    "prompt_when_core_knowledge_used": true,
+    "confirmation_question": "Apakah mau diteruskan ke pendaftaran?",
+    "accepted_reply": "Baik, saya akan hubungkan ke admin.",
+    "declined_reply": "Baik kak, saya tetap bisa membantu menjawab pertanyaan seputar Rumah Privat Madani jika masih ada yang ingin ditanyakan.",
+    "handoff_owner": "admin manusia"
+  },
+  "training_examples": [
+    {
+      "sequence": 1,
+      "parent_message": "Anak saya belum lancar membaca dan cepat bosan.",
+      "expected_reply": "Paket yang paling sesuai adalah Les Privat Calistung. Materinya mencakup pengenalan huruf, suku kata, membaca tanpa mengeja, latihan menulis, serta berhitung dasar. Pembelajaran menggunakan metode multisensori dan disusun bertahap sesuai kesiapan anak. Boleh diinformasikan usia atau kelas anak dan domisilinya?",
+      "intent": "package_recommendation",
+      "stage": "ask_child_profile",
+      "matched_reference": "rumah_privat_madani_chatbot_knowledge.md#calistung",
+      "training_tags": ["recommendation", "calistung", "reading", "clarification"]
+    },
+    {
+      "sequence": 2,
+      "parent_message": "Berapa harga English?",
+      "expected_reply": "Pada materi promosi terdapat dua harga yang berbeda, yaitu Rp55.000 dan Rp60.000 per sesi. Agar tidak memberikan informasi yang keliru, harga English terbaru perlu dikonfirmasi ke admin.",
+      "intent": "package_price",
+      "stage": "needs_admin_confirmation",
+      "matched_reference": "rumah_privat_madani_chatbot_knowledge.md#english-price",
+      "training_tags": ["price", "english", "needs-confirmation"]
+    },
+    {
+      "sequence": 3,
+      "parent_message": "Anak sudah bisa Iqra tetapi tajwidnya masih kurang.",
+      "expected_reply": "Paket BTQ kelas Al-Qur'an lanjutan lebih sesuai. Fokusnya meliputi perbaikan tajwid seperti mad dan idgham, pembelajaran gharib, serta kelancaran tadarus.",
+      "intent": "package_recommendation",
+      "stage": "answered_package_recommendation",
+      "matched_reference": "rumah_privat_madani_chatbot_knowledge.md#btq-al-quran",
+      "training_tags": ["recommendation", "btq", "tajwid", "al-quran"]
+    },
+    {
+      "sequence": 4,
+      "parent_message": "Ada paket apa saja di Rumah Privat Madani?",
+      "expected_reply": "Rumah Privat Madani menyediakan Les Privat Calistung, Les Privat BTQ, English Private for Children, dan Les Privat Matematika. Semua format yang tercantum adalah 1 anak 1 tutor. Paket mana yang ingin kakak tanyakan lebih lanjut?",
+      "intent": "list_packages",
+      "stage": "ask_package_selection",
+      "matched_reference": "rumah_privat_madani_chatbot_knowledge.md#packages",
+      "training_tags": ["packages", "opening", "clarification"]
+    },
+    {
+      "sequence": 5,
+      "parent_message": "Area layanannya di mana saja?",
+      "expected_reply": "Area layanan yang tercantum adalah Tasikmalaya, Ciamis, dan Singaparna. Untuk memastikan kecamatan atau alamat detail termasuk cakupan layanan, informasi tersebut perlu dikonfirmasi ke admin.",
+      "intent": "coverage_area",
+      "stage": "answered_coverage",
+      "matched_reference": "rumah_privat_madani_chatbot_knowledge.md#coverage",
+      "training_tags": ["coverage", "location", "admin-confirmation"]
+    },
+    {
+      "sequence": 6,
+      "parent_message": "Saya mau daftar les.",
+      "expected_reply": "Untuk pendaftaran, admin manusia yang akan membantu prosesnya.\n\nApakah mau diteruskan ke pendaftaran?",
+      "intent": "close_confirmation_prompt",
+      "stage": "close_confirmation_prompt",
+      "matched_reference": "chatbot_close_policy#registration_request",
+      "training_tags": ["close", "handoff-consent", "registration_request"]
+    },
+    {
+      "sequence": 7,
+      "parent_message": "Halo",
+      "expected_reply": "Halo kak, selamat datang di Rumah Privat Madani. Aku chatbot yang bisa membantu menjawab informasi seputar paket Calistung, BTQ, English Private for Children, Matematika, harga, area layanan, dan pendaftaran. Ada yang ingin kakak tanyakan?",
+      "intent": "greeting",
+      "stage": "greeting",
+      "matched_reference": "rumah_privat_madani_chatbot_knowledge.md#greeting",
+      "training_tags": ["greeting", "introduction", "opening"]
+    },
+    {
+      "sequence": 8,
+      "parent_message": "Ya, teruskan ke admin.",
+      "expected_reply": "Baik, saya akan hubungkan ke admin.",
+      "intent": "admin_handoff_confirmed",
+      "stage": "transferred_to_admin",
+      "matched_reference": "chatbot_close_policy#confirmed",
+      "training_tags": ["close", "admin-handoff", "confirmed"]
+    }
+  ]
+}

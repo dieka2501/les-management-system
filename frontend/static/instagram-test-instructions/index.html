@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Instruksi Pengujian Instagram App - Rumah Privat Madani Chatbot</title>
+    <link rel="stylesheet" href="/assets/site.css" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="topbar">
+        <a class="brand" href="/">
+          <span class="brand-mark">RPM</span>
+          <span>
+            <strong>Rumah Privat Madani</strong>
+            <span>Instagram App Testing</span>
+          </span>
+        </a>
+        <nav class="nav-links" aria-label="Navigasi legal">
+          <a href="/">Home</a>
+          <a href="/meta-app-details/">Meta App details</a>
+          <a href="/privacy-policy/">Privacy</a>
+        </nav>
+      </header>
+
+      <main class="section-stack">
+        <section class="hero">
+          <p class="eyebrow">Testing instructions</p>
+          <h1>Instruksi Pengujian Instagram App</h1>
+          <p class="lead">
+            Halaman ini menjelaskan alur dasar untuk reviewer atau tester saat mengecek integrasi
+            chatbot Instagram Rumah Privat Madani.
+          </p>
+        </section>
+
+        <section class="card">
+          <h2>Website URL</h2>
+          <p>
+            Gunakan homepage domain deployment sebagai <span class="code">URL Situs</span>.
+            Pada development lokal, jalankan server lalu buka tunnel HTTPS publik sebelum memasukkan URL ke Meta.
+          </p>
+        </section>
+
+        <section class="card">
+          <h2>Alur pengujian chatbot</h2>
+          <ol>
+            <li>Buka halaman simulator provider di <span class="code">/provider/chat-simulations</span>.</li>
+            <li>Masukkan password test yang diberikan di catatan review Meta App. Tidak ada username.</li>
+            <li>Pilih mode <span class="code">Gemini AI</span> untuk menguji jawaban berbasis AI dan knowledge base.</li>
+            <li>Kirim pertanyaan seputar paket les, harga, area layanan, materi belajar, atau pendaftaran.</li>
+            <li>Untuk menguji handoff, kirim pesan seperti <span class="code">Saya mau daftar les</span>, lalu jawab setuju saat chatbot meminta konfirmasi.</li>
+          </ol>
+        </section>
+
+        <section class="card">
+          <h2>Alur pengujian Instagram DM</h2>
+          <ol>
+            <li>Kirim DM ke akun Instagram Professional Rumah Privat Madani yang terhubung ke Meta App.</li>
+            <li>Gunakan pesan uji seperti <span class="code">Ada paket apa saja?</span> atau <span class="code">Area layanannya di mana?</span>.</li>
+            <li>Chatbot akan menjawab hanya berdasarkan knowledge base Rumah Privat Madani.</li>
+            <li>Jika percakapan sudah diteruskan ke admin, chatbot tidak membalas lagi agar admin manusia bisa mengambil alih.</li>
+          </ol>
+        </section>
+
+        <section class="notice">
+          Jangan menaruh password test publik di halaman ini. Masukkan password hanya di field instruksi review Meta App.
+        </section>
+      </main>
+
+      <footer>© 2026 Rumah Privat Madani. All rights reserved.</footer>
+    </div>
+  </body>
+</html>

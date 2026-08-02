@@ -4,9 +4,19 @@ import os
 import sqlite3
 from pathlib import Path
 
+from .env_loader import load_project_env
+
+
+load_project_env()
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DB_PATH = PROJECT_ROOT / "backend" / "data" / "les.sqlite3"
+
+
+class ClosingConnection(sqlite3.Connection):
+    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
+        super().__exit__(exc_type, exc_value, traceback)
+        self.close()
 
 
 def resolve_db_path(db_path: str | os.PathLike[str] | None = None) -> Path:
@@ -17,7 +27,7 @@ def resolve_db_path(db_path: str | os.PathLike[str] | None = None) -> Path:
 def connect(db_path: str | os.PathLike[str] | None = None) -> sqlite3.Connection:
     path = resolve_db_path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path)
+    conn = sqlite3.connect(path, factory=ClosingConnection)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
@@ -156,6 +166,35 @@ def migrate(conn: sqlite3.Connection) -> None:
             notes TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS provider_chat_simulation_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT NOT NULL UNIQUE,
+            title TEXT NOT NULL,
+            channel TEXT NOT NULL DEFAULT 'provider',
+            source TEXT NOT NULL DEFAULT 'knowledge_base',
+            status TEXT NOT NULL DEFAULT 'open',
+            current_stage TEXT NOT NULL DEFAULT 'start',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS provider_chat_simulation_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            turn_index INTEGER NOT NULL,
+            role TEXT NOT NULL CHECK(role IN ('parent', 'assistant')),
+            message TEXT NOT NULL,
+            intent TEXT,
+            expected_reply TEXT,
+            matched_reference TEXT,
+            confidence REAL,
+            needs_review INTEGER NOT NULL DEFAULT 0,
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (session_id) REFERENCES provider_chat_simulation_sessions(id) ON DELETE CASCADE,
+            UNIQUE(session_id, turn_index, role)
         );
         """
     )

@@ -1,11 +1,28 @@
 from __future__ import annotations
 
+import json
+import os
 import sqlite3
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
+from .chat_simulation import FAQ_SIMULATION_SCRIPT, load_chatbot_knowledge, simulate_provider_reply
 from .database import connect, migrate, seed_master_data
+from .gemini_chatbot import GeminiConfigurationError, GeminiServiceError, simulate_provider_ai_reply
+from .instagram_webhook import (
+    InstagramMessageEvent,
+    InstagramSendError,
+    InstagramWebhookError,
+    InstagramWebhookSignatureError,
+    extract_instagram_message_events,
+    instagram_reply_mode,
+    instagram_send_enabled,
+    parse_instagram_webhook_payload,
+    send_instagram_text_message,
+    verify_instagram_challenge,
+    verify_instagram_signature,
+)
 from .scheduling import (
     DAY_NAMES,
     contains_range,
@@ -1003,6 +1020,470 @@ class LesStore:
                 """
             ).fetchall()
             return rows_to_dicts(rows)
+
+    def list_provider_chat_simulation_sessions(self) -> list[dict[str, Any]]:
+        with self.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT s.*,
+                       COUNT(m.id) AS message_count,
+                       MAX(m.created_at) AS last_message_at
+                FROM provider_chat_simulation_sessions s
+                LEFT JOIN provider_chat_simulation_messages m ON m.session_id = s.id
+                GROUP BY s.id
+                ORDER BY s.id DESC
+                LIMIT 50
+                """
+            ).fetchall()
+            return rows_to_dicts(rows)
+
+    def provider_chat_simulation_faq_script(self) -> dict[str, Any]:
+        return {"items": FAQ_SIMULATION_SCRIPT}
+
+    def provider_chatbot_knowledge(self) -> dict[str, Any]:
+        return load_chatbot_knowledge()
+
+    def create_provider_chat_simulation_session(self, data: dict[str, Any]) -> dict[str, Any]:
+        title = str(data.get("title") or "Simulasi knowledge base Rumah Privat Madani").strip()
+        if not title:
+            raise ValidationError("Judul simulasi wajib diisi.")
+        with self.connection() as conn:
+            code = self.next_code(conn, "provider_chat_simulation_sessions", "SIM")
+            cursor = conn.execute(
+                """
+                INSERT INTO provider_chat_simulation_sessions (code, title, channel, source)
+                VALUES (?, ?, 'provider', 'knowledge_base')
+                """,
+                (code, title),
+            )
+            session_id = cursor.lastrowid
+            if data.get("seed_from_faq"):
+                self.insert_provider_chat_simulation_faq_script(conn, session_id)
+                conn.execute(
+                    """
+                    UPDATE provider_chat_simulation_sessions
+                    SET current_stage = 'knowledge_seeded', updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    (session_id,),
+                )
+            conn.commit()
+        return self.get_provider_chat_simulation_session(session_id)
+
+    def get_provider_chat_simulation_session(self, session_id: int) -> dict[str, Any]:
+        with self.connection() as conn:
+            session = self.get_provider_chat_simulation_session_row(conn, session_id)
+            session["messages"] = self.list_provider_chat_simulation_messages(conn, session_id)
+            return session
+
+    def send_provider_chat_simulation_message(self, session_id: int, data: dict[str, Any]) -> dict[str, Any]:
+        message = require_text(data, "message", "Pesan simulasi")
+        reply_mode = self.normalize_provider_chat_reply_mode(data.get("mode") or data.get("reply_mode"))
+        with self.connection() as conn:
+            self.get_provider_chat_simulation_session_row(conn, session_id)
+            history = self.list_provider_chat_simulation_messages(conn, session_id)
+            try:
+                reply = (
+                    simulate_provider_ai_reply(message, history)
+                    if reply_mode == "gemini"
+                    else simulate_provider_reply(message, history)
+                )
+            except (GeminiConfigurationError, GeminiServiceError) as exc:
+                raise ValidationError(str(exc)) from exc
+            turn_index = self.next_provider_chat_turn_index(conn, session_id)
+            metadata = {"training_tags": reply.training_tags, "reply_mode": reply_mode}
+            parent_message = self.insert_provider_chat_simulation_message(
+                conn,
+                session_id=session_id,
+                turn_index=turn_index,
+                role="parent",
+                message=message,
+                intent=reply.intent,
+                expected_reply=reply.message,
+                matched_reference=reply.matched_reference,
+                confidence=reply.confidence,
+                needs_review=reply.needs_review,
+                metadata=metadata,
+            )
+            assistant_message = self.insert_provider_chat_simulation_message(
+                conn,
+                session_id=session_id,
+                turn_index=turn_index,
+                role="assistant",
+                message=reply.message,
+                intent=reply.intent,
+                expected_reply=reply.message,
+                matched_reference=reply.matched_reference,
+                confidence=reply.confidence,
+                needs_review=reply.needs_review,
+                metadata=metadata,
+            )
+            conn.execute(
+                """
+                UPDATE provider_chat_simulation_sessions
+                SET current_stage = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (reply.stage, session_id),
+            )
+            conn.commit()
+        return {
+            "parent_message": parent_message,
+            "assistant_message": assistant_message,
+            "reply": reply.to_dict(),
+            "session": self.get_provider_chat_simulation_session(session_id),
+        }
+
+    def normalize_provider_chat_reply_mode(self, value: Any) -> str:
+        mode = str(value or "rule_based").strip().lower().replace("-", "_")
+        aliases = {
+            "rule": "rule_based",
+            "rules": "rule_based",
+            "rule_based": "rule_based",
+            "simulator": "rule_based",
+            "gemini": "gemini",
+            "gemini_ai": "gemini",
+            "ai": "gemini",
+        }
+        if mode not in aliases:
+            raise ValidationError("Mode balasan harus rule_based atau gemini.")
+        return aliases[mode]
+
+    def verify_instagram_webhook_challenge(self, query: str) -> str:
+        try:
+            return verify_instagram_challenge(query)
+        except InstagramWebhookError as exc:
+            raise PermissionError(str(exc)) from exc
+
+    def handle_instagram_webhook(self, raw_body: bytes, headers: Any) -> dict[str, Any]:
+        try:
+            signature_status = verify_instagram_signature(raw_body, headers)
+            payload = parse_instagram_webhook_payload(raw_body)
+            events = extract_instagram_message_events(payload)
+        except InstagramWebhookSignatureError as exc:
+            raise PermissionError(str(exc)) from exc
+        except InstagramWebhookError as exc:
+            raise ValidationError(str(exc)) from exc
+
+        results = [self.handle_instagram_message_event(event) for event in events]
+        return {
+            "object": payload.get("object"),
+            "signature": signature_status,
+            "events_received": len(events),
+            "results": results,
+        }
+
+    def handle_instagram_message_event(self, event: InstagramMessageEvent) -> dict[str, Any]:
+        session = self.find_or_create_instagram_chat_session(event)
+        if session["current_stage"] == "transferred_to_admin":
+            return {
+                "sender_id": event.sender_id,
+                "session_id": session["id"],
+                "status": "ignored_transferred_to_admin",
+                "sent": False,
+            }
+
+        mode = self.normalize_provider_chat_reply_mode(
+            instagram_reply_mode(default=self.default_instagram_reply_mode())
+        )
+        result = self.send_provider_chat_simulation_message(
+            session["id"],
+            {
+                "message": event.text,
+                "mode": mode,
+            },
+        )
+        send_result: dict[str, Any] = {"enabled": instagram_send_enabled(), "sent": False}
+        if instagram_send_enabled():
+            try:
+                send_result = {
+                    "enabled": True,
+                    "sent": True,
+                    "response": send_instagram_text_message(
+                        recipient_id=event.sender_id,
+                        text=result["assistant_message"]["message"],
+                        ig_user_id=event.recipient_id or None,
+                    ),
+                }
+            except InstagramSendError as exc:
+                send_result = {"enabled": True, "sent": False, "error": str(exc)}
+
+        return {
+            "sender_id": event.sender_id,
+            "session_id": result["session"]["id"],
+            "reply_mode": mode,
+            "intent": result["reply"]["intent"],
+            "stage": result["reply"]["stage"],
+            "sent": bool(send_result.get("sent")),
+            "send_result": send_result,
+        }
+
+    def default_instagram_reply_mode(self) -> str:
+        if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+            return "gemini"
+        return "rule_based"
+
+    def find_or_create_instagram_chat_session(self, event: InstagramMessageEvent) -> dict[str, Any]:
+        title = f"Instagram DM {event.sender_id}"
+        with self.connection() as conn:
+            row = conn.execute(
+                """
+                SELECT *
+                FROM provider_chat_simulation_sessions
+                WHERE channel = 'instagram'
+                  AND source = 'instagram_webhook'
+                  AND title = ?
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (title,),
+            ).fetchone()
+            if row:
+                return dict(row)
+
+            code = self.next_code(conn, "provider_chat_simulation_sessions", "SIM")
+            cursor = conn.execute(
+                """
+                INSERT INTO provider_chat_simulation_sessions (
+                    code, title, channel, source, current_stage
+                )
+                VALUES (?, ?, 'instagram', 'instagram_webhook', 'start')
+                """,
+                (code, title),
+            )
+            conn.commit()
+            return self.get_provider_chat_simulation_session_row(conn, int(cursor.lastrowid))
+
+    def update_provider_chat_simulation_message(
+        self, session_id: int, message_id: int, data: dict[str, Any]
+    ) -> dict[str, Any]:
+        new_response = require_text(data, "message", "Respons asisten")
+        with self.connection() as conn:
+            self.get_provider_chat_simulation_session_row(conn, session_id)
+            row = conn.execute(
+                """
+                SELECT *
+                FROM provider_chat_simulation_messages
+                WHERE id = ? AND session_id = ?
+                """,
+                (message_id, session_id),
+            ).fetchone()
+            if row is None:
+                raise NotFoundError("Pesan simulasi tidak ditemukan.")
+            if row["role"] != "assistant":
+                raise ValidationError("Hanya respons asisten yang bisa diedit.")
+
+            metadata = self.decode_metadata(row["metadata_json"])
+            metadata["edited_by_provider"] = True
+            conn.execute(
+                """
+                UPDATE provider_chat_simulation_messages
+                SET message = ?,
+                    expected_reply = ?,
+                    needs_review = 0,
+                    metadata_json = ?
+                WHERE id = ?
+                """,
+                (new_response, new_response, json.dumps(metadata, ensure_ascii=False), message_id),
+            )
+            conn.execute(
+                """
+                UPDATE provider_chat_simulation_messages
+                SET expected_reply = ?,
+                    needs_review = 0,
+                    metadata_json = ?
+                WHERE session_id = ?
+                  AND turn_index = ?
+                  AND role = 'parent'
+                """,
+                (new_response, json.dumps(metadata, ensure_ascii=False), session_id, row["turn_index"]),
+            )
+            conn.execute(
+                """
+                UPDATE provider_chat_simulation_sessions
+                SET updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (session_id,),
+            )
+            conn.commit()
+
+        return {
+            "message": self.get_provider_chat_simulation_message(message_id),
+            "session": self.get_provider_chat_simulation_session(session_id),
+        }
+
+    def list_provider_chat_training_examples(self) -> list[dict[str, Any]]:
+        with self.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT s.code AS session_code,
+                       s.title AS session_title,
+                       parent.session_id,
+                       parent.turn_index,
+                       parent.message AS parent_message,
+                       COALESCE(parent.expected_reply, assistant.message) AS expected_reply,
+                       parent.intent,
+                       parent.matched_reference,
+                       parent.confidence,
+                       parent.needs_review,
+                       parent.metadata_json
+                FROM provider_chat_simulation_messages parent
+                JOIN provider_chat_simulation_sessions s ON s.id = parent.session_id
+                LEFT JOIN provider_chat_simulation_messages assistant
+                  ON assistant.session_id = parent.session_id
+                 AND assistant.turn_index = parent.turn_index
+                 AND assistant.role = 'assistant'
+                WHERE parent.role = 'parent'
+                ORDER BY parent.session_id, parent.turn_index
+                """
+            ).fetchall()
+            examples = []
+            for row in rows:
+                item = dict(row)
+                metadata = self.decode_metadata(item.pop("metadata_json"))
+                item["needs_review"] = bool(item["needs_review"])
+                item["training_tags"] = metadata.get("training_tags", [])
+                examples.append(item)
+            return examples
+
+    def get_provider_chat_simulation_message(self, message_id: int) -> dict[str, Any]:
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM provider_chat_simulation_messages WHERE id = ?",
+                (message_id,),
+            ).fetchone()
+            if row is None:
+                raise NotFoundError("Pesan simulasi tidak ditemukan.")
+            return self.format_provider_chat_message(row)
+
+    def get_provider_chat_simulation_session_row(
+        self, conn: sqlite3.Connection, session_id: int
+    ) -> dict[str, Any]:
+        row = conn.execute(
+            "SELECT * FROM provider_chat_simulation_sessions WHERE id = ?",
+            (session_id,),
+        ).fetchone()
+        if row is None:
+            raise NotFoundError("Simulasi percakapan tidak ditemukan.")
+        return dict(row)
+
+    def list_provider_chat_simulation_messages(
+        self, conn: sqlite3.Connection, session_id: int
+    ) -> list[dict[str, Any]]:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM provider_chat_simulation_messages
+            WHERE session_id = ?
+            ORDER BY turn_index, id
+            """,
+            (session_id,),
+        ).fetchall()
+        return [self.format_provider_chat_message(row) for row in rows]
+
+    def insert_provider_chat_simulation_faq_script(
+        self, conn: sqlite3.Connection, session_id: int
+    ) -> None:
+        for item in FAQ_SIMULATION_SCRIPT:
+            turn_index = int(item["sequence"])
+            metadata = {"training_tags": item["training_tags"]}
+            self.insert_provider_chat_simulation_message(
+                conn,
+                session_id=session_id,
+                turn_index=turn_index,
+                role="parent",
+                message=item["parent_message"],
+                intent=item["intent"],
+                expected_reply=item["expected_reply"],
+                matched_reference=item["matched_reference"],
+                confidence=1.0,
+                needs_review=False,
+                metadata=metadata,
+            )
+            self.insert_provider_chat_simulation_message(
+                conn,
+                session_id=session_id,
+                turn_index=turn_index,
+                role="assistant",
+                message=item["expected_reply"],
+                intent=item["intent"],
+                expected_reply=item["expected_reply"],
+                matched_reference=item["matched_reference"],
+                confidence=1.0,
+                needs_review=False,
+                metadata=metadata,
+            )
+
+    def insert_provider_chat_simulation_message(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        session_id: int,
+        turn_index: int,
+        role: str,
+        message: str,
+        intent: str,
+        expected_reply: str,
+        matched_reference: str,
+        confidence: float,
+        needs_review: bool,
+        metadata: dict[str, Any],
+    ) -> dict[str, Any]:
+        cursor = conn.execute(
+            """
+            INSERT INTO provider_chat_simulation_messages (
+                session_id, turn_index, role, message, intent, expected_reply,
+                matched_reference, confidence, needs_review, metadata_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                session_id,
+                turn_index,
+                role,
+                message,
+                intent,
+                expected_reply,
+                matched_reference,
+                confidence,
+                1 if needs_review else 0,
+                json.dumps(metadata, ensure_ascii=False),
+            ),
+        )
+        row = conn.execute(
+            "SELECT * FROM provider_chat_simulation_messages WHERE id = ?",
+            (cursor.lastrowid,),
+        ).fetchone()
+        return self.format_provider_chat_message(row)
+
+    def next_provider_chat_turn_index(self, conn: sqlite3.Connection, session_id: int) -> int:
+        row = conn.execute(
+            """
+            SELECT COALESCE(MAX(turn_index), 0) + 1 AS next_turn
+            FROM provider_chat_simulation_messages
+            WHERE session_id = ?
+            """,
+            (session_id,),
+        ).fetchone()
+        return int(row["next_turn"])
+
+    def format_provider_chat_message(self, row: sqlite3.Row) -> dict[str, Any]:
+        item = dict(row)
+        metadata = self.decode_metadata(item.pop("metadata_json"))
+        item["needs_review"] = bool(item["needs_review"])
+        item["metadata"] = metadata
+        item["training_tags"] = metadata.get("training_tags", [])
+        return item
+
+    def decode_metadata(self, raw_value: str | None) -> dict[str, Any]:
+        if not raw_value:
+            return {}
+        try:
+            value = json.loads(raw_value)
+        except json.JSONDecodeError:
+            return {}
+        return value if isinstance(value, dict) else {}
 
     def normalize_subject_ids(self, value: Any) -> list[int]:
         if value is None or value == "":

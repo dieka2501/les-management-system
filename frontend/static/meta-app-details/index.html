@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Checklist Meta App Details - Rumah Privat Madani Chatbot</title>
+    <link rel="stylesheet" href="/assets/site.css" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="topbar">
+        <a class="brand" href="/">
+          <span class="brand-mark">RPM</span>
+          <span>
+            <strong>Rumah Privat Madani</strong>
+            <span>Meta App Details</span>
+          </span>
+        </a>
+        <nav class="nav-links" aria-label="Navigasi legal">
+          <a href="/">Home</a>
+          <a href="/privacy-policy/">Privacy</a>
+          <a href="/terms-of-service/">Terms</a>
+          <a href="/data-deletion/">Data deletion</a>
+        </nav>
+      </header>
+
+      <main class="section-stack">
+        <section class="hero">
+          <p class="eyebrow">Meta / Instagram setup helper</p>
+          <h1>Checklist pengisian App IG di Meta Dashboard.</h1>
+          <p class="lead">
+            Ganti <span class="code">https://domain-kamu</span> dengan domain production atau HTTPS tunnel yang sedang dipakai.
+            Halaman ini membantu mengisi field pada screenshot Meta App Dashboard.
+          </p>
+        </section>
+
+        <section class="card">
+          <h2>Rincian Aplikasi</h2>
+          <table class="meta-table">
+            <tbody>
+              <tr>
+                <th>Nama Tampilan</th>
+                <td>Rumah Privat Madani Chatbot</td>
+              </tr>
+              <tr>
+                <th>Namespace</th>
+                <td><span class="code">rumah_privat_madani_chatbot</span> atau namespace unik lain yang masih tersedia di Meta.</td>
+              </tr>
+              <tr>
+                <th>Domain Aplikasi</th>
+                <td><span class="code">domain-kamu</span>, tanpa <span class="code">https://</span>.</td>
+              </tr>
+              <tr>
+                <th>Email Kontak</th>
+                <td><a href="mailto:dieka.koes@gmail.com">dieka.koes@gmail.com</a></td>
+              </tr>
+              <tr>
+                <th>URL Kebijakan Privasi</th>
+                <td><span class="code">https://domain-kamu/privacy-policy/</span></td>
+              </tr>
+              <tr>
+                <th>Ketentuan Layanan URL</th>
+                <td><span class="code">https://domain-kamu/terms-of-service/</span></td>
+              </tr>
+              <tr>
+                <th>Penghapusan Data Pengguna</th>
+                <td>Pilih <strong>URL Petunjuk Penghapusan Data</strong>, lalu isi <span class="code">https://domain-kamu/data-deletion/</span>.</td>
+              </tr>
+              <tr>
+                <th>Kategori</th>
+                <td>Pengiriman Pesan</td>
+              </tr>
+              <tr>
+                <th>URL Situs</th>
+                <td><span class="code">https://domain-kamu/</span></td>
+              </tr>
+              <tr>
+                <th>Petunjuk Pengujian</th>
+                <td>
+                  Gunakan ringkasan di <span class="code">https://domain-kamu/instagram-test-instructions/</span>.
+                  Password simulator jangan dipublikasikan; tulis langsung di catatan review Meta App.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="card">
+          <h2>Webhook callback</h2>
+          <p>Untuk produk Instagram/Webhooks, isi callback URL dengan:</p>
+          <p><span class="code">https://domain-kamu/webhooks/instagram</span></p>
+          <p>
+            Verify token harus sama dengan nilai <span class="code">IG_WEBHOOK_VERIFY_TOKEN</span> di file environment server.
+          </p>
+        </section>
+
+        <section class="notice">
+          App icon tetap perlu diupload langsung di Meta Dashboard dalam format JPG, GIF, atau PNG.
+          Halaman ini hanya menyiapkan URL dan instruksi yang bisa di-host oleh aplikasi.
+        </section>
+      </main>
+
+      <footer>© 2026 Rumah Privat Madani. All rights reserved.</footer>
+    </div>
+  </body>
+</html>
