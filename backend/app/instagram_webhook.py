@@ -243,6 +243,14 @@ def summarize_instagram_webhook_payload(payload: dict[str, Any]) -> dict[str, An
     candidate_items = 0
     text_candidates = 0
     echo_candidates = 0
+    candidate_key_sets: set[str] = set()
+    message_key_sets: set[str] = set()
+    postback_key_sets: set[str] = set()
+    attachment_candidates = 0
+    read_candidates = 0
+    delivery_candidates = 0
+    reaction_candidates = 0
+    referral_candidates = 0
 
     for entry in entries:
         if not isinstance(entry, dict):
@@ -261,17 +269,32 @@ def summarize_instagram_webhook_payload(payload: dict[str, Any]) -> dict[str, An
 
         for candidate in iter_instagram_message_candidates(entry):
             candidate_items += 1
+            candidate_key_sets.add(",".join(sorted(str(key) for key in candidate.keys())))
             message = candidate.get("message") or {}
             if not isinstance(message, dict):
                 message = {}
+            if message:
+                message_key_sets.add(",".join(sorted(str(key) for key in message.keys())))
             postback = candidate.get("postback") or message.get("postback") or {}
             if not isinstance(postback, dict):
                 postback = {}
+            if postback:
+                postback_key_sets.add(",".join(sorted(str(key) for key in postback.keys())))
             if message.get("is_echo") or candidate.get("is_echo"):
                 echo_candidates += 1
                 continue
             if message.get("text") or candidate.get("text") or postback.get("title") or postback.get("payload"):
                 text_candidates += 1
+            if message.get("attachments") or candidate.get("attachments"):
+                attachment_candidates += 1
+            if candidate.get("read") or message.get("read"):
+                read_candidates += 1
+            if candidate.get("delivery") or message.get("delivery"):
+                delivery_candidates += 1
+            if candidate.get("reaction") or message.get("reaction"):
+                reaction_candidates += 1
+            if candidate.get("referral") or message.get("referral"):
+                referral_candidates += 1
 
     return {
         "entry_count": len(entries),
@@ -282,6 +305,14 @@ def summarize_instagram_webhook_payload(payload: dict[str, Any]) -> dict[str, An
         "candidate_items": candidate_items,
         "text_candidates": text_candidates,
         "echo_candidates": echo_candidates,
+        "candidate_key_sets": sorted(candidate_key_sets),
+        "message_key_sets": sorted(message_key_sets),
+        "postback_key_sets": sorted(postback_key_sets),
+        "attachment_candidates": attachment_candidates,
+        "read_candidates": read_candidates,
+        "delivery_candidates": delivery_candidates,
+        "reaction_candidates": reaction_candidates,
+        "referral_candidates": referral_candidates,
     }
 
 

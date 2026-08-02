@@ -128,7 +128,40 @@ class InstagramWebhookTestCase(unittest.TestCase):
         self.assertEqual(["messages"], summary["change_fields"])
         self.assertEqual(1, summary["candidate_items"])
         self.assertEqual(1, summary["text_candidates"])
+        self.assertEqual(["message,recipient,sender,timestamp"], summary["candidate_key_sets"])
+        self.assertEqual(["mid,text"], summary["message_key_sets"])
         self.assertNotIn("pesan privat", json.dumps(summary, ensure_ascii=False))
+
+    def test_summarize_instagram_payload_identifies_non_text_events(self) -> None:
+        payload = {
+            "object": "instagram",
+            "entry": [
+                {
+                    "id": "ig-business",
+                    "time": 123,
+                    "messaging": [
+                        {
+                            "sender": {"id": "user-5"},
+                            "recipient": {"id": "ig-business"},
+                            "read": {"mid": "m_5"},
+                        },
+                        {
+                            "sender": {"id": "user-5"},
+                            "recipient": {"id": "ig-business"},
+                            "delivery": {"mids": ["m_6"]},
+                        },
+                    ],
+                }
+            ],
+        }
+
+        summary = summarize_instagram_webhook_payload(payload)
+
+        self.assertEqual(2, summary["candidate_items"])
+        self.assertEqual(0, summary["text_candidates"])
+        self.assertEqual(1, summary["read_candidates"])
+        self.assertEqual(1, summary["delivery_candidates"])
+        self.assertEqual(["delivery,recipient,sender", "read,recipient,sender"], summary["candidate_key_sets"])
 
     def test_store_handles_instagram_webhook_without_sending_when_disabled(self) -> None:
         raw_body = json.dumps(
