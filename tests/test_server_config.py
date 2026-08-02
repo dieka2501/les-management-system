@@ -4,7 +4,14 @@ import os
 import unittest
 from unittest.mock import patch
 
-from backend.app.main import default_host, default_port, parse_host_value
+from backend.app.main import (
+    default_host,
+    default_port,
+    is_protected_api_path,
+    is_protected_dashboard_path,
+    parse_host_value,
+    safe_next_path,
+)
 
 
 class ServerConfigTestCase(unittest.TestCase):
@@ -34,6 +41,26 @@ class ServerConfigTestCase(unittest.TestCase):
     def test_default_port_can_fallback_to_host_port(self) -> None:
         with patch.dict(os.environ, {"HOST": "127.0.0.1:9000", "PORT": ""}, clear=False):
             self.assertEqual(9000, default_port())
+
+    def test_operational_api_paths_are_protected(self) -> None:
+        self.assertTrue(is_protected_api_path("/api/dashboard-data"))
+        self.assertTrue(is_protected_api_path("/api/branches"))
+        self.assertTrue(is_protected_api_path("/api/schedules/generate"))
+
+    def test_auth_and_webhook_paths_stay_public(self) -> None:
+        self.assertFalse(is_protected_api_path("/api/provider/login"))
+        self.assertFalse(is_protected_api_path("/api/provider/auth"))
+        self.assertFalse(is_protected_api_path("/webhooks/instagram"))
+
+    def test_dashboard_page_paths_are_protected(self) -> None:
+        self.assertTrue(is_protected_dashboard_path("/"))
+        self.assertTrue(is_protected_dashboard_path("/index.html"))
+        self.assertFalse(is_protected_dashboard_path("/privacy-policy/"))
+
+    def test_safe_next_path_allows_only_internal_paths(self) -> None:
+        self.assertEqual("/", safe_next_path("/", "/provider/chat-simulations"))
+        self.assertEqual("/provider/chat-simulations", safe_next_path("https://evil.example", "/provider/chat-simulations"))
+        self.assertEqual("/provider/chat-simulations", safe_next_path("//evil.example", "/provider/chat-simulations"))
 
 
 if __name__ == "__main__":

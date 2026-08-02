@@ -123,6 +123,13 @@ textarea {
   margin-bottom: 22px;
 }
 
+.topbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .eyebrow {
   color: var(--brand-dark);
   font-size: 12px;
@@ -415,6 +422,7 @@ textarea {
   }
 
   .topbar,
+  .topbar-actions,
   .two-col,
   .metric-grid,
   .form-grid,

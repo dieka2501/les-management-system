@@ -9,10 +9,10 @@ UI ini hanya disajikan lewat route provider:
 Sebelum membuka simulator, user akan diminta password. Password disimpan di root `.env`:
 
 ```bash
-CHATBOT_TEST_PASSWORD=...
+APP_AUTH_PASSWORD=...
 ```
 
-Tidak ada username. API provider juga ikut diproteksi oleh session cookie setelah login.
+Tidak ada username. API provider juga ikut diproteksi oleh session cookie setelah login. Alias lama `CHATBOT_TEST_PASSWORD` tetap didukung jika konfigurasi lama masih dipakai.
 
 Asset JavaScript dan CSS berada di `frontend/provider/assets`. Tidak ada file yang ditambahkan ke dashboard client.
 

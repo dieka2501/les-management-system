@@ -5,7 +5,7 @@ import os
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import quote, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 from .provider_auth import (
     ProviderAuthenticationError,
@@ -21,6 +21,32 @@ from .store import LesStore, NotFoundError, ValidationError
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 STATIC_ROOT = PROJECT_ROOT / "frontend" / "static"
 PROVIDER_ROOT = PROJECT_ROOT / "frontend" / "provider"
+PUBLIC_API_PATHS = {
+    "/api/provider/auth",
+    "/api/provider/login",
+    "/api/provider/logout",
+}
+PROTECTED_DASHBOARD_PATHS = {"", "/", "/index.html"}
+
+
+def is_protected_api_path(path: str) -> bool:
+    return path.startswith("/api/") and path not in PUBLIC_API_PATHS
+
+
+def is_protected_dashboard_path(path: str) -> bool:
+    return path in PROTECTED_DASHBOARD_PATHS
+
+
+def safe_next_path(raw_next: str | None, fallback: str) -> str:
+    next_path = str(raw_next or "").strip()
+    if next_path.startswith("/") and not next_path.startswith("//"):
+        return next_path
+    return fallback
+
+
+def safe_next_path_from_query(query: str, fallback: str) -> str:
+    values = parse_qs(query).get("next", [])
+    return safe_next_path(values[0] if values else None, fallback)
 
 
 class LesRequestHandler(BaseHTTPRequestHandler):
@@ -33,6 +59,9 @@ class LesRequestHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         try:
+            if is_protected_api_path(path):
+                self.require_provider_api_auth()
+
             if path == "/api/dashboard-data":
                 self.send_json(self.store.dashboard_data())
             elif path == "/webhooks/instagram":
@@ -78,8 +107,9 @@ class LesRequestHandler(BaseHTTPRequestHandler):
                 session_id = self.parse_provider_chat_simulation_id(path)
                 self.send_json(self.store.get_provider_chat_simulation_session(session_id))
             elif path == "/provider/login":
+                next_path = safe_next_path_from_query(parsed.query, "/provider/chat-simulations")
                 if self.is_provider_authenticated():
-                    self.send_redirect("/provider/chat-simulations")
+                    self.send_redirect(next_path)
                 else:
                     self.serve_provider_file("login.html")
             elif path in {"/provider", "/provider/", "/provider/chat-simulations", "/provider/chat-simulations/"}:
@@ -88,6 +118,9 @@ class LesRequestHandler(BaseHTTPRequestHandler):
             elif path.startswith("/provider/assets/"):
                 if self.require_provider_page_auth(path):
                     self.serve_provider_file(path.removeprefix("/provider/"))
+            elif is_protected_dashboard_path(path):
+                if self.require_provider_page_auth(path or "/"):
+                    self.serve_static(path)
             else:
                 self.serve_static(path)
         except Exception as exc:
@@ -102,6 +135,9 @@ class LesRequestHandler(BaseHTTPRequestHandler):
                 print(f"Instagram webhook processed: {json.dumps(result, ensure_ascii=False)}")
                 self.send_text("EVENT_RECEIVED")
                 return
+
+            if is_protected_api_path(path):
+                self.require_provider_api_auth()
 
             data = self.read_json_body()
             if path == "/api/provider/login":
@@ -147,7 +183,7 @@ class LesRequestHandler(BaseHTTPRequestHandler):
     def do_PUT(self) -> None:
         path = urlparse(self.path).path
         try:
-            if path.startswith("/api/provider/"):
+            if is_protected_api_path(path):
                 self.require_provider_api_auth()
             data = self.read_json_body()
             if path.startswith("/api/provider/chat-simulations/"):
@@ -174,6 +210,9 @@ class LesRequestHandler(BaseHTTPRequestHandler):
     def do_DELETE(self) -> None:
         path = urlparse(self.path).path
         try:
+            if is_protected_api_path(path):
+                self.require_provider_api_auth()
+
             resource, item_id = self.parse_resource_id(path)
             if resource == "branches":
                 self.send_json(self.store.archive_branch(item_id))

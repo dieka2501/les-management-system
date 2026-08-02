@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Login Chatbot Test</title>
+    <title>Login Area Internal</title>
     <style>
       :root {
         color-scheme: light;
@@ -124,8 +124,8 @@
   <body>
     <main>
       <div class="brand">LB</div>
-      <h1>Login test chatbot</h1>
-      <p>Masukkan password untuk membuka simulasi percakapan dan dataset knowledge base.</p>
+      <h1>Login area internal</h1>
+      <p>Masukkan password untuk membuka dashboard operasional, simulasi percakapan, dan data internal.</p>
 
       <form id="loginForm">
         <label for="passwordInput">
@@ -161,8 +161,8 @@
           }
 
           const params = new URLSearchParams(window.location.search);
-          const next = params.get("next") || "/provider/chat-simulations";
-          window.location.href = next.startsWith("/provider") ? next : "/provider/chat-simulations";
+          const next = safeNextPath(params.get("next") || "/provider/chat-simulations");
+          window.location.href = next;
         } catch (error) {
           errorMessage.textContent = error.message;
         } finally {
@@ -170,6 +170,13 @@
           submitButton.textContent = "Masuk";
         }
       });
+
+      function safeNextPath(next) {
+        if (next && next.startsWith("/") && !next.startsWith("//")) {
+          return next;
+        }
+        return "/provider/chat-simulations";
+      }
     </script>
   </body>
 </html>

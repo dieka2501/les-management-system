@@ -34,6 +34,12 @@ Dashboard operasional client tersedia di root aplikasi:
 /
 ```
 
+Halaman ini wajib login karena menampilkan dan mengubah data operasional. Jika belum ada session, user akan diarahkan ke:
+
+```text
+/provider/login?next=/
+```
+
 Slice MVP dashboard mencakup CRUD cabang, orang tua, murid, guru, jadwal manual, dan generator jadwal otomatis. Data operasional memakai `branch_id`, bukan teks kota bebas. Cabang menyimpan nama, alamat, dan kota/kabupaten, misalnya:
 
 - Cabang Jalan Kenangan, Kota Tasikmalaya.
@@ -71,8 +77,8 @@ PORT=8001
 LES_SEED_DEMO=0
 LES_DB_PATH=backend/data/les.sqlite3
 
-CHATBOT_TEST_PASSWORD=madani-chatbot-dev
-CHATBOT_AUTH_SECRET=
+APP_AUTH_PASSWORD=madani-internal-dev
+APP_AUTH_SECRET=
 
 GEMINI_API_KEY=
 GOOGLE_API_KEY=
@@ -119,11 +125,13 @@ Rekomendasi setup Railway:
 ```bash
 LES_SEED_DEMO=0
 LES_DB_PATH=/data/les.sqlite3
-CHATBOT_TEST_PASSWORD=password-production-kamu
-CHATBOT_AUTH_SECRET=random-session-secret-production
+APP_AUTH_PASSWORD=password-production-kamu
+APP_AUTH_SECRET=random-session-secret-production
 ```
 
 Railway akan inject variable `PORT` sendiri, jadi tidak perlu hardcode `PORT` di Railway. Jangan isi `HOST` dengan domain publik Railway/custom domain; saat mendeteksi Railway, aplikasi otomatis bind ke `0.0.0.0`.
+
+Untuk production, jangan biarkan `APP_AUTH_PASSWORD` kosong. Jika app mendeteksi Railway/production tetapi password login belum dikonfigurasi, area internal akan gagal login secara aman.
 
 Jika `LES_DB_PATH` tidak diset tetapi Railway Volume sudah terpasang, aplikasi otomatis memakai:
 
@@ -149,7 +157,7 @@ Atau biarkan aplikasi menjalankan migrasi saat start; `LesStore` akan memastikan
 
 Halaman static berikut disiapkan agar field di Meta App Dashboard bisa dilengkapi:
 
-- `/` sebagai Website URL.
+- `/meta-app-details/` sebagai Website URL publik. Catatan: `/` adalah dashboard operasional dan wajib login.
 - `/privacy-policy/` sebagai URL Kebijakan Privasi.
 - `/terms-of-service/` sebagai Ketentuan Layanan URL.
 - `/data-deletion/` sebagai URL Petunjuk Penghapusan Data.
@@ -159,31 +167,33 @@ Halaman static berikut disiapkan agar field di Meta App Dashboard bisa dilengkap
 Saat production atau memakai HTTPS tunnel, ganti host lokal dengan domain kamu. Contoh:
 
 ```text
+https://domain-kamu/meta-app-details/
 https://domain-kamu/privacy-policy/
 https://domain-kamu/terms-of-service/
 https://domain-kamu/data-deletion/
 https://domain-kamu/webhooks/instagram
 ```
 
-## Login test chatbot
+## Login area internal
 
-Area provider/test chatbot dilindungi form login password-only:
+Area internal dilindungi form login password-only:
 
 ```text
+/ 
 /provider/chat-simulations
 ```
 
 Password disimpan di `.env`:
 
 ```bash
-CHATBOT_TEST_PASSWORD=madani-chatbot-dev
+APP_AUTH_PASSWORD=madani-internal-dev
 ```
 
-Tidak ada username. Setelah password benar, browser akan menerima session cookie `HttpOnly` selama 12 jam. API provider seperti `/api/provider/chat-simulations` juga ikut diproteksi, jadi tidak hanya tampilan UI yang terkunci.
+Tidak ada username. Setelah password benar, browser akan menerima session cookie `HttpOnly` selama 12 jam. Dashboard operasional, API CRUD/generate/list data, dan API provider seperti `/api/provider/chat-simulations` ikut diproteksi, jadi tidak hanya tampilan UI yang terkunci.
 
 Untuk mengganti password:
 
-1. Edit `CHATBOT_TEST_PASSWORD` di `.env`.
+1. Edit `APP_AUTH_PASSWORD` di `.env`.
 2. Jalankan ulang server:
 
 ```bash
@@ -193,8 +203,10 @@ Untuk mengganti password:
 Jika password mengandung spasi atau karakter khusus, bungkus dengan tanda kutip:
 
 ```bash
-CHATBOT_TEST_PASSWORD="password rahasia kamu"
+APP_AUTH_PASSWORD="password rahasia kamu"
 ```
+
+Alias lama `CHATBOT_TEST_PASSWORD` dan `CHATBOT_AUTH_SECRET` masih didukung untuk kompatibilitas, tetapi konfigurasi baru sebaiknya memakai `APP_AUTH_PASSWORD` dan `APP_AUTH_SECRET`.
 
 ## Simulasi percakapan provider
 
