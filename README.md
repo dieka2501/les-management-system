@@ -419,6 +419,24 @@ Terakhir, di Meta App Dashboard:
 
 Untuk production, app biasanya perlu App Review/Advanced Access agar permission messaging bisa dipakai oleh user di luar role developer/tester.
 
+### Troubleshooting token Instagram
+
+Jika klik `Buat token` / `Generate token` hanya membuka halaman profil Instagram dan token tidak muncul, biasanya flow permission popup Meta gagal di browser. Kasus yang pernah terjadi: Safari berhasil login Instagram, tetapi tidak menampilkan popup `Allow` untuk permission, sehingga token tidak tergenerate. Solusinya:
+
+1. Gunakan Google Chrome.
+2. Lebih aman pakai Incognito/Private Window agar session Meta dan Instagram tidak tercampur.
+3. Matikan ad blocker/privacy blocker sementara.
+4. Izinkan pop-up dan redirect untuk:
+   - `developers.facebook.com`
+   - `facebook.com`
+   - `instagram.com`
+5. Login Meta Developer dengan akun developer.
+6. Klik `Buat token` dari Meta Dashboard.
+7. Login/continue Instagram dengan akun tester yang sudah ditambahkan dan menerima invite.
+8. Pastikan popup permission muncul, lalu klik `Allow` / `Izinkan semua permission`.
+
+Kalau hanya masuk ke profil Instagram, ulangi dari Chrome/incognito. Untuk setup token test, Chrome lebih stabil daripada Safari.
+
 Referensi:
 
 - [Meta/Postman Instagram API - Subscribe to webhooks](https://www.postman.com/meta/instagram/request/23987686-0223707a-7035-46a2-8015-1fdf7249278f)
