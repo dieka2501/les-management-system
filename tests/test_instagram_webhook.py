@@ -102,6 +102,34 @@ class InstagramWebhookTestCase(unittest.TestCase):
         self.assertEqual("ig-business", events[0].recipient_id)
         self.assertEqual("Halo dari changes", events[0].text)
 
+    def test_extract_instagram_text_message_events_from_message_edit_payload(self) -> None:
+        payload = {
+            "object": "instagram",
+            "entry": [
+                {
+                    "id": "ig-business",
+                    "time": 123,
+                    "messaging": [
+                        {
+                            "sender": {"id": "user-4"},
+                            "recipient": {"id": "ig-business"},
+                            "timestamp": 456,
+                            "message_edit": {"mid": "m_4", "text": "Halo dari message edit"},
+                        }
+                    ],
+                }
+            ],
+        }
+
+        events = extract_instagram_message_events(payload)
+
+        self.assertEqual(1, len(events))
+        self.assertEqual("user-4", events[0].sender_id)
+        self.assertEqual("ig-business", events[0].recipient_id)
+        self.assertEqual("Halo dari message edit", events[0].text)
+        self.assertEqual("m_4", events[0].message_id)
+        self.assertEqual(456, events[0].timestamp)
+
     def test_summarize_instagram_payload_without_raw_message_text(self) -> None:
         payload = {
             "object": "instagram",
@@ -131,6 +159,33 @@ class InstagramWebhookTestCase(unittest.TestCase):
         self.assertEqual(["message,recipient,sender,timestamp"], summary["candidate_key_sets"])
         self.assertEqual(["mid,text"], summary["message_key_sets"])
         self.assertNotIn("pesan privat", json.dumps(summary, ensure_ascii=False))
+
+    def test_summarize_instagram_payload_identifies_message_edit_shape_without_raw_text(self) -> None:
+        payload = {
+            "object": "instagram",
+            "entry": [
+                {
+                    "id": "ig-business",
+                    "time": 123,
+                    "messaging": [
+                        {
+                            "timestamp": 456,
+                            "message_edit": {"mid": "m_5", "text": "pesan privat edit"},
+                        }
+                    ],
+                }
+            ],
+        }
+
+        summary = summarize_instagram_webhook_payload(payload)
+
+        self.assertEqual(1, summary["candidate_items"])
+        self.assertEqual(1, summary["message_edit_candidates"])
+        self.assertEqual(1, summary["text_candidates"])
+        self.assertEqual(1, summary["missing_sender_candidates"])
+        self.assertEqual(["message_edit,timestamp"], summary["candidate_key_sets"])
+        self.assertEqual(["mid,text"], summary["message_edit_key_sets"])
+        self.assertNotIn("pesan privat edit", json.dumps(summary, ensure_ascii=False))
 
     def test_summarize_instagram_payload_identifies_non_text_events(self) -> None:
         payload = {

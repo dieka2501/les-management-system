@@ -419,6 +419,39 @@ Terakhir, di Meta App Dashboard:
 
 Untuk production, app biasanya perlu App Review/Advanced Access agar permission messaging bisa dipakai oleh user di luar role developer/tester.
 
+### Troubleshooting webhook Instagram
+
+Catatan dari pengujian nyata:
+
+- Saat Meta App masih development/Standard Access, webhook DM hanya aktif untuk akun yang punya role di app, misalnya Admin, Developer, atau Instagram Tester.
+- Akun random/non-tester yang mengirim DM ke akun Instagram target tidak akan memunculkan log webhook di Railway. Ini perilaku normal sebelum App Review/Advanced Access.
+- Instagram Tester tidak cukup hanya ditambahkan di Meta Dashboard; akun tersebut harus menerima invitation terlebih dulu.
+- Untuk production, app perlu App Review/Advanced Access dan Live mode agar DM dari customer umum bisa diterima webhook.
+
+Log diagnostik yang perlu dibedakan:
+
+```json
+"candidate_key_sets": ["read,timestamp"]
+```
+
+Artinya event yang masuk adalah tanda pesan dibaca (`read receipt`), bukan pesan baru, sehingga chatbot memang tidak membalas.
+
+```json
+"candidate_key_sets": ["message_edit,timestamp"]
+```
+
+Artinya event yang masuk adalah edit pesan (`message_edit`), bukan payload pesan normal. Event ini sebaiknya tidak dianggap sebagai pertanyaan baru kecuali nanti diputuskan untuk mendukung jawaban dari pesan yang diedit.
+
+Payload DM teks normal yang diproses chatbot seharusnya memiliki `message.text`, dan diagnostic idealnya mendekati:
+
+```json
+"candidate_key_sets": ["message,recipient,sender,timestamp"],
+"message_key_sets": ["mid,text"],
+"text_candidates": 1
+```
+
+Jika webhook verified tetapi `text_candidates` tetap `0`, cek dulu apakah pengirim adalah tester yang sudah accept invitation, field `messages` sudah subscribed, dan permission token dibuat dengan akses messaging aktif.
+
 ### Troubleshooting token Instagram
 
 Jika klik `Buat token` / `Generate token` hanya membuka halaman profil Instagram dan token tidak muncul, biasanya flow permission popup Meta gagal di browser. Kasus yang pernah terjadi: Safari berhasil login Instagram, tetapi tidak menampilkan popup `Allow` untuk permission, sehingga token tidak tergenerate. Solusinya:

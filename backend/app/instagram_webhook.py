@@ -190,15 +190,20 @@ def parse_instagram_message_candidate(
     if not isinstance(message, dict):
         message = {}
 
+    message_edit = candidate.get("message_edit") or {}
+    if not isinstance(message_edit, dict):
+        message_edit = {}
+
     postback = candidate.get("postback") or message.get("postback") or {}
     if not isinstance(postback, dict):
         postback = {}
 
-    if message.get("is_echo") or candidate.get("is_echo"):
+    if message.get("is_echo") or message_edit.get("is_echo") or candidate.get("is_echo"):
         return None
 
     text = str(
         message.get("text")
+        or message_edit.get("text")
         or candidate.get("text")
         or postback.get("title")
         or postback.get("payload")
@@ -207,10 +212,16 @@ def parse_instagram_message_candidate(
     if not text:
         return None
 
-    sender_id = nested_id(candidate.get("sender")) or str(candidate.get("sender_id") or "").strip()
+    sender_id = (
+        nested_id(candidate.get("sender"))
+        or nested_id(message_edit.get("sender"))
+        or str(candidate.get("sender_id") or message_edit.get("sender_id") or "").strip()
+    )
     recipient_id = (
         nested_id(candidate.get("recipient"))
+        or nested_id(message_edit.get("recipient"))
         or str(candidate.get("recipient_id") or "").strip()
+        or str(message_edit.get("recipient_id") or "").strip()
         or str(entry.get("id") or "").strip()
     )
     if not sender_id:
@@ -220,8 +231,8 @@ def parse_instagram_message_candidate(
         sender_id=sender_id,
         recipient_id=recipient_id,
         text=text,
-        message_id=message.get("mid") or message.get("id") or candidate.get("message_id"),
-        timestamp=candidate.get("timestamp") or message.get("timestamp") or entry.get("time"),
+        message_id=message.get("mid") or message.get("id") or message_edit.get("mid") or message_edit.get("id") or candidate.get("message_id"),
+        timestamp=candidate.get("timestamp") or message.get("timestamp") or message_edit.get("timestamp") or entry.get("time"),
     )
 
 
@@ -245,12 +256,16 @@ def summarize_instagram_webhook_payload(payload: dict[str, Any]) -> dict[str, An
     echo_candidates = 0
     candidate_key_sets: set[str] = set()
     message_key_sets: set[str] = set()
+    message_edit_key_sets: set[str] = set()
     postback_key_sets: set[str] = set()
+    message_edit_candidates = 0
     attachment_candidates = 0
     read_candidates = 0
     delivery_candidates = 0
     reaction_candidates = 0
     referral_candidates = 0
+    missing_sender_candidates = 0
+    missing_recipient_candidates = 0
 
     for entry in entries:
         if not isinstance(entry, dict):
@@ -275,17 +290,23 @@ def summarize_instagram_webhook_payload(payload: dict[str, Any]) -> dict[str, An
                 message = {}
             if message:
                 message_key_sets.add(",".join(sorted(str(key) for key in message.keys())))
+            message_edit = candidate.get("message_edit") or {}
+            if not isinstance(message_edit, dict):
+                message_edit = {}
+            if message_edit:
+                message_edit_candidates += 1
+                message_edit_key_sets.add(",".join(sorted(str(key) for key in message_edit.keys())))
             postback = candidate.get("postback") or message.get("postback") or {}
             if not isinstance(postback, dict):
                 postback = {}
             if postback:
                 postback_key_sets.add(",".join(sorted(str(key) for key in postback.keys())))
-            if message.get("is_echo") or candidate.get("is_echo"):
+            if message.get("is_echo") or message_edit.get("is_echo") or candidate.get("is_echo"):
                 echo_candidates += 1
                 continue
-            if message.get("text") or candidate.get("text") or postback.get("title") or postback.get("payload"):
+            if message.get("text") or message_edit.get("text") or candidate.get("text") or postback.get("title") or postback.get("payload"):
                 text_candidates += 1
-            if message.get("attachments") or candidate.get("attachments"):
+            if message.get("attachments") or message_edit.get("attachments") or candidate.get("attachments"):
                 attachment_candidates += 1
             if candidate.get("read") or message.get("read"):
                 read_candidates += 1
@@ -295,6 +316,19 @@ def summarize_instagram_webhook_payload(payload: dict[str, Any]) -> dict[str, An
                 reaction_candidates += 1
             if candidate.get("referral") or message.get("referral"):
                 referral_candidates += 1
+            if not (
+                nested_id(candidate.get("sender"))
+                or nested_id(message_edit.get("sender"))
+                or str(candidate.get("sender_id") or message_edit.get("sender_id") or "").strip()
+            ):
+                missing_sender_candidates += 1
+            if not (
+                nested_id(candidate.get("recipient"))
+                or nested_id(message_edit.get("recipient"))
+                or str(candidate.get("recipient_id") or message_edit.get("recipient_id") or "").strip()
+                or str(entry.get("id") or "").strip()
+            ):
+                missing_recipient_candidates += 1
 
     return {
         "entry_count": len(entries),
@@ -307,12 +341,16 @@ def summarize_instagram_webhook_payload(payload: dict[str, Any]) -> dict[str, An
         "echo_candidates": echo_candidates,
         "candidate_key_sets": sorted(candidate_key_sets),
         "message_key_sets": sorted(message_key_sets),
+        "message_edit_key_sets": sorted(message_edit_key_sets),
         "postback_key_sets": sorted(postback_key_sets),
+        "message_edit_candidates": message_edit_candidates,
         "attachment_candidates": attachment_candidates,
         "read_candidates": read_candidates,
         "delivery_candidates": delivery_candidates,
         "reaction_candidates": reaction_candidates,
         "referral_candidates": referral_candidates,
+        "missing_sender_candidates": missing_sender_candidates,
+        "missing_recipient_candidates": missing_recipient_candidates,
     }
 
 

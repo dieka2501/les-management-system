@@ -64,6 +64,20 @@
         </section>
 
         <section class="card">
+          <h2>Catatan tester dan webhook</h2>
+          <p>
+            Selama Meta App masih development atau Standard Access, DM yang masuk ke webhook hanya dapat
+            dipicu oleh akun yang sudah menjadi Admin, Developer, atau Instagram Tester dan sudah menerima
+            invitation. DM dari akun non-tester bisa masuk ke inbox Instagram, tetapi tidak memunculkan log
+            webhook di server.
+          </p>
+          <p>
+            Jika log webhook hanya menampilkan <span class="code">read</span> atau <span class="code">message_edit</span>,
+            itu bukan pesan teks baru. Payload yang diproses chatbot harus memiliki <span class="code">message.text</span>.
+          </p>
+        </section>
+
+        <section class="card">
           <h2>Troubleshooting token</h2>
           <p>
             Jika proses <span class="code">Buat token</span> hanya membuka profil Instagram tanpa popup izin permission,
