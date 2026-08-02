@@ -117,14 +117,13 @@ Rekomendasi setup Railway:
 3. Set service variables di Railway:
 
 ```bash
-HOST=0.0.0.0
 LES_SEED_DEMO=0
 LES_DB_PATH=/data/les.sqlite3
 CHATBOT_TEST_PASSWORD=password-production-kamu
 CHATBOT_AUTH_SECRET=random-session-secret-production
 ```
 
-Railway akan inject variable `PORT` sendiri, jadi tidak perlu hardcode `PORT` di Railway.
+Railway akan inject variable `PORT` sendiri, jadi tidak perlu hardcode `PORT` di Railway. Jangan isi `HOST` dengan domain publik Railway/custom domain; saat mendeteksi Railway, aplikasi otomatis bind ke `0.0.0.0`.
 
 Jika `LES_DB_PATH` tidak diset tetapi Railway Volume sudah terpasang, aplikasi otomatis memakai:
 

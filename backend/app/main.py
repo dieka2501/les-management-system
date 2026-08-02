@@ -375,17 +375,44 @@ def create_server(host: str = "127.0.0.1", port: int = 8000, seed_demo: bool = F
     return ThreadingHTTPServer((host, port), LesRequestHandler)
 
 
+def is_railway_runtime() -> bool:
+    return bool(
+        os.environ.get("RAILWAY_ENVIRONMENT")
+        or os.environ.get("RAILWAY_SERVICE_ID")
+        or os.environ.get("RAILWAY_PROJECT_ID")
+    )
+
+
+def parse_host_value(raw_host: str | None) -> tuple[str | None, int | None]:
+    value = str(raw_host or "").strip()
+    if not value:
+        return None, None
+
+    parsed = urlparse(value if "://" in value else f"//{value}")
+    host = parsed.hostname or value
+    port = parsed.port
+    return host, port
+
+
 def default_host() -> str:
-    if os.environ.get("HOST"):
-        return os.environ["HOST"]
-    if os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_SERVICE_ID"):
+    if is_railway_runtime():
         return "0.0.0.0"
-    return "127.0.0.1"
+
+    host, _ = parse_host_value(os.environ.get("HOST"))
+    return host or "127.0.0.1"
+
+
+def default_port() -> int:
+    if os.environ.get("PORT"):
+        return int(os.environ["PORT"])
+
+    _, host_port = parse_host_value(os.environ.get("HOST"))
+    return host_port or 8000
 
 
 def main() -> None:
     host = default_host()
-    port = int(os.environ.get("PORT", "8000"))
+    port = default_port()
     seed_demo = os.environ.get("LES_SEED_DEMO", "0") == "1"
     server = create_server(host, port, seed_demo)
     print(f"Les Management System running at http://{host}:{port}")
