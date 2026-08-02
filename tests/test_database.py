@@ -3,7 +3,9 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+from backend.app.database import resolve_db_path
 from backend.app.store import LesStore
 
 
@@ -22,6 +24,17 @@ class DatabaseSeedTestCase(unittest.TestCase):
 
             self.assertEqual(3, store.summary()["branches"])
             self.assertEqual(4, len(store.list_subjects()))
+
+    def test_railway_volume_path_is_used_when_les_db_path_is_empty(self) -> None:
+        with patch.dict(
+            "os.environ",
+            {
+                "LES_DB_PATH": "",
+                "RAILWAY_VOLUME_MOUNT_PATH": "/data",
+            },
+            clear=False,
+        ):
+            self.assertEqual(Path("/data/les.sqlite3"), resolve_db_path())
 
 
 if __name__ == "__main__":

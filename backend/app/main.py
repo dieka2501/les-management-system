@@ -375,8 +375,16 @@ def create_server(host: str = "127.0.0.1", port: int = 8000, seed_demo: bool = F
     return ThreadingHTTPServer((host, port), LesRequestHandler)
 
 
+def default_host() -> str:
+    if os.environ.get("HOST"):
+        return os.environ["HOST"]
+    if os.environ.get("RAILWAY_ENVIRONMENT") or os.environ.get("RAILWAY_SERVICE_ID"):
+        return "0.0.0.0"
+    return "127.0.0.1"
+
+
 def main() -> None:
-    host = os.environ.get("HOST", "127.0.0.1")
+    host = default_host()
     port = int(os.environ.get("PORT", "8000"))
     seed_demo = os.environ.get("LES_SEED_DEMO", "0") == "1"
     server = create_server(host, port, seed_demo)

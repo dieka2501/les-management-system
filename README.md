@@ -89,6 +89,63 @@ IG_GRAPH_API_VERSION=v24.0
 
 Catatan penting: `.env` masuk `.gitignore` karena bisa berisi API key/token. Untuk production, isi secret langsung di server atau secret manager deployment.
 
+## Railway production dengan SQLite
+
+Railway production tetap memakai SQLite, tetapi file database tidak boleh mengandalkan path repository seperti `backend/data/les.sqlite3`. Untuk production, pasang Railway Volume agar data tidak hilang saat redeploy.
+
+Start command Railway/Railpack sudah dikonfigurasi di root project melalui:
+
+```text
+railpack.json
+```
+
+Isi start command:
+
+```bash
+python3 -m backend.app.main
+```
+
+Rekomendasi setup Railway:
+
+1. Attach Railway Volume ke service aplikasi.
+2. Set mount path volume ke:
+
+```text
+/data
+```
+
+3. Set service variables di Railway:
+
+```bash
+HOST=0.0.0.0
+LES_SEED_DEMO=0
+LES_DB_PATH=/data/les.sqlite3
+CHATBOT_TEST_PASSWORD=password-production-kamu
+CHATBOT_AUTH_SECRET=random-session-secret-production
+```
+
+Railway akan inject variable `PORT` sendiri, jadi tidak perlu hardcode `PORT` di Railway.
+
+Jika `LES_DB_PATH` tidak diset tetapi Railway Volume sudah terpasang, aplikasi otomatis memakai:
+
+```text
+$RAILWAY_VOLUME_MOUNT_PATH/les.sqlite3
+```
+
+Dengan mount path `/data`, hasilnya sama dengan:
+
+```text
+/data/les.sqlite3
+```
+
+Untuk membuat schema production tanpa seed demo:
+
+```bash
+python3 -m backend.app.migrate
+```
+
+Atau biarkan aplikasi menjalankan migrasi saat start; `LesStore` akan memastikan schema tersedia. Jangan set `LES_SEED_DEMO=1` di production.
+
 ## Halaman pendukung Meta/Instagram App
 
 Halaman static berikut disiapkan agar field di Meta App Dashboard bisa dilengkapi:
