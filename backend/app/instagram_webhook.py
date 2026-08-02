@@ -127,28 +127,162 @@ def parse_instagram_webhook_payload(raw_body: bytes) -> dict[str, Any]:
 def extract_instagram_message_events(payload: dict[str, Any]) -> list[InstagramMessageEvent]:
     events: list[InstagramMessageEvent] = []
     for entry in payload.get("entry", []) or []:
-        for messaging in entry.get("messaging", []) or []:
-            message = messaging.get("message") or {}
-            if message.get("is_echo"):
-                continue
-            text = str(message.get("text") or "").strip()
-            if not text:
-                continue
-
-            sender_id = str((messaging.get("sender") or {}).get("id") or "").strip()
-            recipient_id = str((messaging.get("recipient") or {}).get("id") or "").strip()
-            if not sender_id:
-                continue
-            events.append(
-                InstagramMessageEvent(
-                    sender_id=sender_id,
-                    recipient_id=recipient_id,
-                    text=text,
-                    message_id=message.get("mid"),
-                    timestamp=messaging.get("timestamp") or entry.get("time"),
-                )
-            )
+        if not isinstance(entry, dict):
+            continue
+        for candidate in iter_instagram_message_candidates(entry):
+            event = parse_instagram_message_candidate(candidate, entry)
+            if event is not None:
+                events.append(event)
     return events
+
+
+def iter_instagram_message_candidates(entry: Mapping[str, Any]) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+
+    for messaging in entry.get("messaging", []) or []:
+        if isinstance(messaging, dict):
+            candidates.append(messaging)
+
+    for message in entry.get("messages", []) or []:
+        if isinstance(message, dict):
+            candidates.append(
+                {
+                    "sender": entry.get("sender") or {},
+                    "recipient": entry.get("recipient") or {"id": entry.get("id")},
+                    "message": message,
+                    "timestamp": entry.get("time"),
+                }
+            )
+
+    for change in entry.get("changes", []) or []:
+        if not isinstance(change, dict):
+            continue
+        value = change.get("value") or {}
+        if not isinstance(value, dict):
+            continue
+
+        for messaging in value.get("messaging", []) or []:
+            if isinstance(messaging, dict):
+                candidates.append(messaging)
+
+        for message in value.get("messages", []) or []:
+            if isinstance(message, dict):
+                candidate = dict(value)
+                candidate["message"] = message
+                candidate.setdefault("recipient", {"id": entry.get("id")})
+                candidate.setdefault("timestamp", entry.get("time"))
+                candidates.append(candidate)
+
+        if any(key in value for key in ("sender", "recipient", "message", "postback", "text")):
+            candidate = dict(value)
+            candidate.setdefault("recipient", {"id": entry.get("id")})
+            candidate.setdefault("timestamp", entry.get("time"))
+            candidates.append(candidate)
+
+    return candidates
+
+
+def parse_instagram_message_candidate(
+    candidate: Mapping[str, Any],
+    entry: Mapping[str, Any],
+) -> InstagramMessageEvent | None:
+    message = candidate.get("message") or {}
+    if not isinstance(message, dict):
+        message = {}
+
+    postback = candidate.get("postback") or message.get("postback") or {}
+    if not isinstance(postback, dict):
+        postback = {}
+
+    if message.get("is_echo") or candidate.get("is_echo"):
+        return None
+
+    text = str(
+        message.get("text")
+        or candidate.get("text")
+        or postback.get("title")
+        or postback.get("payload")
+        or ""
+    ).strip()
+    if not text:
+        return None
+
+    sender_id = nested_id(candidate.get("sender")) or str(candidate.get("sender_id") or "").strip()
+    recipient_id = (
+        nested_id(candidate.get("recipient"))
+        or str(candidate.get("recipient_id") or "").strip()
+        or str(entry.get("id") or "").strip()
+    )
+    if not sender_id:
+        return None
+
+    return InstagramMessageEvent(
+        sender_id=sender_id,
+        recipient_id=recipient_id,
+        text=text,
+        message_id=message.get("mid") or message.get("id") or candidate.get("message_id"),
+        timestamp=candidate.get("timestamp") or message.get("timestamp") or entry.get("time"),
+    )
+
+
+def nested_id(value: Any) -> str:
+    if isinstance(value, dict):
+        return str(value.get("id") or "").strip()
+    return str(value or "").strip()
+
+
+def summarize_instagram_webhook_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    entries = payload.get("entry", []) or []
+    if not isinstance(entries, list):
+        entries = []
+
+    entry_key_sets: set[str] = set()
+    change_fields: set[str] = set()
+    messaging_items = 0
+    change_items = 0
+    candidate_items = 0
+    text_candidates = 0
+    echo_candidates = 0
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        entry_key_sets.add(",".join(sorted(str(key) for key in entry.keys())))
+
+        messaging = entry.get("messaging", []) or []
+        changes = entry.get("changes", []) or []
+        messaging_items += len(messaging) if isinstance(messaging, list) else 0
+        change_items += len(changes) if isinstance(changes, list) else 0
+
+        if isinstance(changes, list):
+            for change in changes:
+                if isinstance(change, dict) and change.get("field"):
+                    change_fields.add(str(change["field"]))
+
+        for candidate in iter_instagram_message_candidates(entry):
+            candidate_items += 1
+            message = candidate.get("message") or {}
+            if not isinstance(message, dict):
+                message = {}
+            postback = candidate.get("postback") or message.get("postback") or {}
+            if not isinstance(postback, dict):
+                postback = {}
+            if message.get("is_echo") or candidate.get("is_echo"):
+                echo_candidates += 1
+                continue
+            if message.get("text") or candidate.get("text") or postback.get("title") or postback.get("payload"):
+                text_candidates += 1
+
+    return {
+        "entry_count": len(entries),
+        "entry_key_sets": sorted(entry_key_sets),
+        "messaging_items": messaging_items,
+        "change_items": change_items,
+        "change_fields": sorted(change_fields),
+        "candidate_items": candidate_items,
+        "text_candidates": text_candidates,
+        "echo_candidates": echo_candidates,
+    }
 
 
 def send_instagram_text_message(

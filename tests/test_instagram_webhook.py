@@ -12,6 +12,7 @@ from unittest.mock import patch
 from backend.app.instagram_webhook import (
     InstagramWebhookSignatureError,
     extract_instagram_message_events,
+    summarize_instagram_webhook_payload,
     verify_instagram_challenge,
     verify_instagram_signature,
 )
@@ -72,6 +73,62 @@ class InstagramWebhookTestCase(unittest.TestCase):
         self.assertEqual("user-1", events[0].sender_id)
         self.assertEqual("ig-business", events[0].recipient_id)
         self.assertEqual("Halo", events[0].text)
+
+    def test_extract_instagram_text_message_events_from_change_payload(self) -> None:
+        payload = {
+            "object": "instagram",
+            "entry": [
+                {
+                    "id": "ig-business",
+                    "time": 123,
+                    "changes": [
+                        {
+                            "field": "messages",
+                            "value": {
+                                "sender": {"id": "user-3"},
+                                "recipient": {"id": "ig-business"},
+                                "message": {"mid": "m_3", "text": "Halo dari changes"},
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+
+        events = extract_instagram_message_events(payload)
+
+        self.assertEqual(1, len(events))
+        self.assertEqual("user-3", events[0].sender_id)
+        self.assertEqual("ig-business", events[0].recipient_id)
+        self.assertEqual("Halo dari changes", events[0].text)
+
+    def test_summarize_instagram_payload_without_raw_message_text(self) -> None:
+        payload = {
+            "object": "instagram",
+            "entry": [
+                {
+                    "id": "ig-business",
+                    "changes": [
+                        {
+                            "field": "messages",
+                            "value": {
+                                "sender": {"id": "user-4"},
+                                "message": {"mid": "m_4", "text": "pesan privat"},
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+
+        summary = summarize_instagram_webhook_payload(payload)
+
+        self.assertEqual(1, summary["entry_count"])
+        self.assertEqual(1, summary["change_items"])
+        self.assertEqual(["messages"], summary["change_fields"])
+        self.assertEqual(1, summary["candidate_items"])
+        self.assertEqual(1, summary["text_candidates"])
+        self.assertNotIn("pesan privat", json.dumps(summary, ensure_ascii=False))
 
     def test_store_handles_instagram_webhook_without_sending_when_disabled(self) -> None:
         raw_body = json.dumps(

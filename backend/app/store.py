@@ -20,6 +20,7 @@ from .instagram_webhook import (
     instagram_send_enabled,
     parse_instagram_webhook_payload,
     send_instagram_text_message,
+    summarize_instagram_webhook_payload,
     verify_instagram_challenge,
     verify_instagram_signature,
 )
@@ -1160,6 +1161,7 @@ class LesStore:
             signature_status = verify_instagram_signature(raw_body, headers)
             payload = parse_instagram_webhook_payload(raw_body)
             events = extract_instagram_message_events(payload)
+            diagnostics = summarize_instagram_webhook_payload(payload)
         except InstagramWebhookSignatureError as exc:
             raise PermissionError(str(exc)) from exc
         except InstagramWebhookError as exc:
@@ -1170,6 +1172,7 @@ class LesStore:
             "object": payload.get("object"),
             "signature": signature_status,
             "events_received": len(events),
+            "diagnostics": diagnostics,
             "results": results,
         }
 
