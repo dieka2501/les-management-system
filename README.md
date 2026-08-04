@@ -91,6 +91,8 @@ IG_USER_ID=
 IG_REPLY_MODE=
 IG_SEND_ENABLED=0
 IG_GRAPH_API_VERSION=v25.0
+IG_DEBUG_RAW_WEBHOOK=0
+IG_DEBUG_RAW_WEBHOOK_MAX_CHARS=20000
 ```
 
 Catatan penting: `.env` masuk `.gitignore` karena bisa berisi API key/token. Untuk production, isi secret langsung di server atau secret manager deployment.
@@ -312,6 +314,8 @@ IG_USER_ID=id-instagram-professional-account
 IG_REPLY_MODE=gemini
 IG_SEND_ENABLED=1
 IG_GRAPH_API_VERSION=v25.0
+IG_DEBUG_RAW_WEBHOOK=0
+IG_DEBUG_RAW_WEBHOOK_MAX_CHARS=20000
 ```
 
 Catatan:
@@ -322,6 +326,10 @@ Catatan:
 - `IG_REPLY_MODE` bisa `gemini` atau `rule_based`.
 - `IG_SEND_ENABLED=0` berguna untuk dry run: webhook diterima dan diproses, tapi backend tidak mengirim balasan ke Instagram.
 - `IG_GRAPH_API_VERSION` default-nya `v25.0`, jadi boleh tidak diset kalau ingin pakai default.
+- `IG_DEBUG_RAW_WEBHOOK=1` hanya untuk development/debugging sementara. Jika aktif, server akan menulis raw payload webhook dan raw hasil processing ke log.
+- `IG_DEBUG_RAW_WEBHOOK_MAX_CHARS` membatasi panjang raw payload yang ditulis ke log. Set `0` jika benar-benar ingin tanpa limit.
+
+Peringatan: raw webhook bisa berisi isi DM, ID pengirim, dan data privat. Jangan aktifkan `IG_DEBUG_RAW_WEBHOOK=1` saat app sudah menerima customer umum. Sebelum production final, matikan env ini atau hapus logging raw webhook.
 
 Contoh menjalankan lokal:
 

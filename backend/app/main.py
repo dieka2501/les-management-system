@@ -49,6 +49,27 @@ def safe_next_path_from_query(query: str, fallback: str) -> str:
     return safe_next_path(values[0] if values else None, fallback)
 
 
+def instagram_raw_webhook_debug_enabled() -> bool:
+    return os.environ.get("IG_DEBUG_RAW_WEBHOOK", "0").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def instagram_raw_webhook_debug_max_chars() -> int | None:
+    raw_value = os.environ.get("IG_DEBUG_RAW_WEBHOOK_MAX_CHARS", "20000").strip()
+    try:
+        value = int(raw_value)
+    except ValueError:
+        return 20000
+    return value if value > 0 else None
+
+
+def instagram_raw_webhook_debug_text(raw_body: bytes) -> str:
+    text = raw_body.decode("utf-8", errors="replace")
+    max_chars = instagram_raw_webhook_debug_max_chars()
+    if max_chars is not None and len(text) > max_chars:
+        return f"{text[:max_chars]}...<truncated {len(text) - max_chars} chars>"
+    return text
+
+
 class LesRequestHandler(BaseHTTPRequestHandler):
     store: LesStore
 
@@ -131,10 +152,14 @@ class LesRequestHandler(BaseHTTPRequestHandler):
         try:
             if path == "/webhooks/instagram":
                 raw_body = self.read_raw_body()
+                raw_debug_enabled = instagram_raw_webhook_debug_enabled()
+                if raw_debug_enabled:
+                    print(f"Instagram webhook raw payload debug: {instagram_raw_webhook_debug_text(raw_body)}")
                 result = self.store.handle_instagram_webhook(raw_body, self.headers)
+                log_result = result if raw_debug_enabled else safe_instagram_webhook_log_result(result)
                 print(
                     "Instagram webhook processed: "
-                    f"{json.dumps(safe_instagram_webhook_log_result(result), ensure_ascii=False)}"
+                    f"{json.dumps(log_result, ensure_ascii=False)}"
                 )
                 self.send_text("EVENT_RECEIVED")
                 return

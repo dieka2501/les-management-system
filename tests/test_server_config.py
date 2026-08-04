@@ -7,6 +7,9 @@ from unittest.mock import patch
 from backend.app.main import (
     default_host,
     default_port,
+    instagram_raw_webhook_debug_enabled,
+    instagram_raw_webhook_debug_max_chars,
+    instagram_raw_webhook_debug_text,
     is_protected_api_path,
     is_protected_dashboard_path,
     parse_host_value,
@@ -61,6 +64,23 @@ class ServerConfigTestCase(unittest.TestCase):
         self.assertEqual("/", safe_next_path("/", "/provider/chat-simulations"))
         self.assertEqual("/provider/chat-simulations", safe_next_path("https://evil.example", "/provider/chat-simulations"))
         self.assertEqual("/provider/chat-simulations", safe_next_path("//evil.example", "/provider/chat-simulations"))
+
+    def test_instagram_raw_webhook_debug_is_disabled_by_default(self) -> None:
+        with patch.dict(os.environ, {"IG_DEBUG_RAW_WEBHOOK": ""}, clear=False):
+            self.assertFalse(instagram_raw_webhook_debug_enabled())
+
+    def test_instagram_raw_webhook_debug_can_be_enabled(self) -> None:
+        with patch.dict(os.environ, {"IG_DEBUG_RAW_WEBHOOK": "1"}, clear=False):
+            self.assertTrue(instagram_raw_webhook_debug_enabled())
+
+    def test_instagram_raw_webhook_debug_text_can_be_truncated(self) -> None:
+        with patch.dict(os.environ, {"IG_DEBUG_RAW_WEBHOOK_MAX_CHARS": "5"}, clear=False):
+            self.assertEqual("abcde...<truncated 5 chars>", instagram_raw_webhook_debug_text(b"abcdefghij"))
+
+    def test_instagram_raw_webhook_debug_text_can_be_unlimited(self) -> None:
+        with patch.dict(os.environ, {"IG_DEBUG_RAW_WEBHOOK_MAX_CHARS": "0"}, clear=False):
+            self.assertIsNone(instagram_raw_webhook_debug_max_chars())
+            self.assertEqual("abcdefghij", instagram_raw_webhook_debug_text(b"abcdefghij"))
 
 
 if __name__ == "__main__":
