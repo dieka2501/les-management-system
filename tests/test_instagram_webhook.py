@@ -336,6 +336,52 @@ class InstagramWebhookTestCase(unittest.TestCase):
         self.assertNotIn("raw secret", json.dumps(result["message_detail_fetch"], ensure_ascii=False))
         self.assertNotIn("m_private_4", json.dumps(result["message_detail_fetch"], ensure_ascii=False))
 
+    def test_store_includes_raw_fetch_error_when_debug_enabled(self) -> None:
+        raw_body = json.dumps(
+            {
+                "object": "instagram",
+                "entry": [
+                    {
+                        "id": "ig-business",
+                        "messaging": [
+                            {
+                                "timestamp": 456,
+                                "message_edit": {"mid": "m_private_5", "num_edit": 1},
+                            }
+                        ],
+                    }
+                ],
+            }
+        ).encode("utf-8")
+
+        with patch.dict(os.environ, {"IG_DEBUG_RAW_WEBHOOK": "1"}, clear=False):
+            with patch(
+                "backend.app.store.fetch_instagram_message_detail",
+                side_effect=InstagramMessageFetchError(
+                    "raw detail failure",
+                    status_code=500,
+                    error_type="http_error",
+                    endpoint="https://graph.instagram.com/v25.0/m_private_5",
+                    response_body='{"error":{"message":"Meta raw failure"}}',
+                ),
+            ):
+                result = self.store.handle_instagram_webhook(raw_body, {})
+
+        self.assertEqual(0, result["events_received"])
+        self.assertEqual(1, result["message_detail_fetch"]["attempted"])
+        self.assertEqual(
+            [
+                {
+                    "type": "http_error",
+                    "status_code": 500,
+                    "message": "raw detail failure",
+                    "endpoint": "https://graph.instagram.com/v25.0/m_private_5",
+                    "response_body": '{"error":{"message":"Meta raw failure"}}',
+                }
+            ],
+            result["message_detail_fetch"]["errors"],
+        )
+
     def test_safe_instagram_webhook_log_result_omits_private_ids_and_text(self) -> None:
         safe_result = safe_instagram_webhook_log_result(
             {

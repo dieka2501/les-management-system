@@ -40,10 +40,14 @@ class InstagramMessageFetchError(InstagramWebhookError):
         *,
         status_code: int | None = None,
         error_type: str = "unknown",
+        endpoint: str | None = None,
+        response_body: str | None = None,
     ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.error_type = error_type
+        self.endpoint = endpoint
+        self.response_body = response_body
 
 
 @dataclass(frozen=True)
@@ -81,6 +85,26 @@ def instagram_user_id() -> str | None:
 def instagram_api_version() -> str:
     version = os.environ.get("IG_GRAPH_API_VERSION", DEFAULT_INSTAGRAM_API_VERSION).strip()
     return version or DEFAULT_INSTAGRAM_API_VERSION
+
+
+def instagram_raw_webhook_debug_enabled() -> bool:
+    return os.environ.get("IG_DEBUG_RAW_WEBHOOK", "0").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def instagram_debug_max_chars() -> int | None:
+    raw_value = os.environ.get("IG_DEBUG_RAW_WEBHOOK_MAX_CHARS", "20000").strip()
+    try:
+        value = int(raw_value)
+    except ValueError:
+        return 20000
+    return value if value > 0 else None
+
+
+def truncate_instagram_debug_text(text: str) -> str:
+    max_chars = instagram_debug_max_chars()
+    if max_chars is not None and len(text) > max_chars:
+        return f"{text[:max_chars]}...<truncated {len(text) - max_chars} chars>"
+    return text
 
 
 def instagram_send_enabled() -> bool:
@@ -462,21 +486,25 @@ def fetch_instagram_message_detail(
         with request.urlopen(api_request, timeout=20) as response:
             response_body = response.read().decode("utf-8")
     except error.HTTPError as exc:
-        exc.read()
+        response_body = exc.read().decode("utf-8", errors="replace")
         raise InstagramMessageFetchError(
             "Instagram Message Detail API gagal.",
             status_code=exc.code,
             error_type="http_error",
+            endpoint=endpoint,
+            response_body=response_body,
         ) from exc
     except error.URLError as exc:
         raise InstagramMessageFetchError(
             "Tidak bisa menghubungi Instagram Message Detail API.",
             error_type="network_error",
+            endpoint=endpoint,
         ) from exc
     except TimeoutError as exc:
         raise InstagramMessageFetchError(
             "Request ke Instagram Message Detail API timeout.",
             error_type="timeout",
+            endpoint=endpoint,
         ) from exc
 
     try:
@@ -520,6 +548,16 @@ def safe_instagram_fetch_error(exc: InstagramMessageFetchError) -> dict[str, Any
     payload: dict[str, Any] = {"type": exc.error_type}
     if exc.status_code is not None:
         payload["status_code"] = exc.status_code
+    return payload
+
+
+def raw_instagram_fetch_error(exc: InstagramMessageFetchError) -> dict[str, Any]:
+    payload = safe_instagram_fetch_error(exc)
+    payload["message"] = str(exc)
+    if exc.endpoint:
+        payload["endpoint"] = exc.endpoint
+    if exc.response_body is not None:
+        payload["response_body"] = truncate_instagram_debug_text(exc.response_body)
     return payload
 
 

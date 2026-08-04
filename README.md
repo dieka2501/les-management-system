@@ -326,8 +326,8 @@ Catatan:
 - `IG_REPLY_MODE` bisa `gemini` atau `rule_based`.
 - `IG_SEND_ENABLED=0` berguna untuk dry run: webhook diterima dan diproses, tapi backend tidak mengirim balasan ke Instagram.
 - `IG_GRAPH_API_VERSION` default-nya `v25.0`, jadi boleh tidak diset kalau ingin pakai default.
-- `IG_DEBUG_RAW_WEBHOOK=1` hanya untuk development/debugging sementara. Jika aktif, server akan menulis raw payload webhook dan raw hasil processing ke log.
-- `IG_DEBUG_RAW_WEBHOOK_MAX_CHARS` membatasi panjang raw payload yang ditulis ke log. Set `0` jika benar-benar ingin tanpa limit.
+- `IG_DEBUG_RAW_WEBHOOK=1` hanya untuk development/debugging sementara. Jika aktif, server akan menulis raw payload webhook, raw hasil processing, dan raw response error dari Message Detail API ke log.
+- `IG_DEBUG_RAW_WEBHOOK_MAX_CHARS` membatasi panjang raw payload/response yang ditulis ke log. Set `0` jika benar-benar ingin tanpa limit.
 
 Peringatan: raw webhook bisa berisi isi DM, ID pengirim, dan data privat. Jangan aktifkan `IG_DEBUG_RAW_WEBHOOK=1` saat app sudah menerima customer umum. Sebelum production final, matikan env ini atau hapus logging raw webhook.
 
@@ -448,7 +448,7 @@ Artinya event yang masuk adalah tanda pesan dibaca (`read receipt`), bukan pesan
 "candidate_key_sets": ["message_edit,timestamp"]
 ```
 
-Artinya event yang masuk adalah edit pesan (`message_edit`), bukan payload pesan normal. Jika event ini hanya membawa `mid` tanpa teks dan sender, backend akan mencoba mengambil detail pesan lewat Message Detail API. Log tetap hanya menampilkan ringkasan `message_detail_fetch`, tidak menampilkan isi DM atau ID pesan lengkap.
+Artinya event yang masuk adalah edit pesan (`message_edit`), bukan payload pesan normal. Jika event ini hanya membawa `mid` tanpa teks dan sender, backend akan mencoba mengambil detail pesan lewat Message Detail API. Saat `IG_DEBUG_RAW_WEBHOOK=0`, log tetap hanya menampilkan ringkasan `message_detail_fetch` tanpa isi DM atau ID pesan lengkap. Saat `IG_DEBUG_RAW_WEBHOOK=1`, log akan menampilkan detail error mentah dari request Message Detail API.
 
 Payload DM teks normal yang diproses chatbot seharusnya memiliki `message.text`, dan diagnostic idealnya mendekati:
 

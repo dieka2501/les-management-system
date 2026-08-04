@@ -20,8 +20,10 @@ from .instagram_webhook import (
     extract_instagram_message_detail_references,
     fetch_instagram_message_detail,
     instagram_message_detail_to_event,
+    instagram_raw_webhook_debug_enabled,
     instagram_reply_mode,
     instagram_send_enabled,
+    raw_instagram_fetch_error,
     parse_instagram_webhook_payload,
     safe_instagram_fetch_error,
     send_instagram_text_message,
@@ -1240,7 +1242,10 @@ class LesStore:
             try:
                 message_detail = fetch_instagram_message_detail(reference.message_id)
             except InstagramMessageFetchError as exc:
-                summary["errors"].append(safe_instagram_fetch_error(exc))
+                if instagram_raw_webhook_debug_enabled():
+                    summary["errors"].append(raw_instagram_fetch_error(exc))
+                else:
+                    summary["errors"].append(safe_instagram_fetch_error(exc))
                 continue
 
             event = instagram_message_detail_to_event(message_detail, reference)
