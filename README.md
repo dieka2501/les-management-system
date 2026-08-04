@@ -323,6 +323,7 @@ Catatan:
 - `IG_WEBHOOK_VERIFY_TOKEN` dibuat sendiri oleh kamu, lalu dimasukkan juga ke Meta App Dashboard.
 - `IG_APP_SECRET` dipakai untuk validasi signature `X-Hub-Signature-256`.
 - `IG_ACCESS_TOKEN` jangan pernah dicommit ke git.
+- `IG_USER_ID` wajib diisi dengan ID akun Instagram target chatbot. Jika webhook aktif di beberapa akun tester, backend hanya memproses `entry.id` yang sama dengan `IG_USER_ID`.
 - `IG_REPLY_MODE` bisa `gemini` atau `rule_based`.
 - `IG_SEND_ENABLED=0` berguna untuk dry run: webhook diterima dan diproses, tapi backend tidak mengirim balasan ke Instagram.
 - `IG_GRAPH_API_VERSION` default-nya `v25.0`, jadi boleh tidak diset kalau ingin pakai default.
@@ -449,6 +450,8 @@ Artinya event yang masuk adalah tanda pesan dibaca (`read receipt`), bukan pesan
 ```
 
 Artinya event yang masuk adalah edit pesan (`message_edit`), bukan payload pesan normal. Jika event ini hanya membawa `mid` tanpa teks dan sender, backend akan mencoba mengambil detail pesan lewat Message Detail API. Saat `IG_DEBUG_RAW_WEBHOOK=0`, log tetap hanya menampilkan ringkasan `message_detail_fetch` tanpa isi DM atau ID pesan lengkap. Saat `IG_DEBUG_RAW_WEBHOOK=1`, log akan menampilkan detail error mentah dari request Message Detail API.
+
+Jika `target_filter.ignored_entries > 0`, webhook yang masuk berasal dari akun Instagram selain `IG_USER_ID`. Untuk chatbot single account, pastikan `IG_USER_ID` dan `IG_ACCESS_TOKEN` milik akun target yang akan dijawab chatbot, lalu matikan langganan webhook pada akun pengirim/tester jika tidak diperlukan.
 
 Payload DM teks normal yang diproses chatbot seharusnya memiliki `message.text`, dan diagnostic idealnya mendekati:
 

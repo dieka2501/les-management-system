@@ -23,6 +23,7 @@ from .instagram_webhook import (
     instagram_raw_webhook_debug_enabled,
     instagram_reply_mode,
     instagram_send_enabled,
+    instagram_user_id,
     raw_instagram_fetch_error,
     parse_instagram_webhook_payload,
     safe_instagram_fetch_error,
@@ -89,6 +90,30 @@ def safe_instagram_webhook_log_result(result: dict[str, Any]) -> dict[str, Any]:
         "diagnostics": result.get("diagnostics"),
         "message_detail_fetch": result.get("message_detail_fetch"),
         "results": safe_results,
+    }
+
+
+def filter_instagram_payload_for_target_user(payload: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    target_user_id = str(instagram_user_id() or "").strip()
+    if not target_user_id:
+        return payload, {"enabled": False}
+
+    entries = payload.get("entry", []) or []
+    if not isinstance(entries, list):
+        entries = []
+
+    filtered_entries = [
+        entry for entry in entries if isinstance(entry, dict) and str(entry.get("id") or "").strip() == target_user_id
+    ]
+    filtered_payload = dict(payload)
+    filtered_payload["entry"] = filtered_entries
+
+    return filtered_payload, {
+        "enabled": True,
+        "target_user_configured": True,
+        "entry_count_before_filter": len(entries),
+        "entry_count_after_filter": len(filtered_entries),
+        "ignored_entries": len(entries) - len(filtered_entries),
     }
 
 
@@ -1198,9 +1223,11 @@ class LesStore:
         try:
             signature_status = verify_instagram_signature(raw_body, headers)
             payload = parse_instagram_webhook_payload(raw_body)
-            events = extract_instagram_message_events(payload)
-            diagnostics = summarize_instagram_webhook_payload(payload)
-            fetched_events, message_detail_fetch = self.fetch_instagram_message_detail_events(payload, events)
+            processing_payload, target_filter = filter_instagram_payload_for_target_user(payload)
+            events = extract_instagram_message_events(processing_payload)
+            diagnostics = summarize_instagram_webhook_payload(processing_payload)
+            diagnostics["target_filter"] = target_filter
+            fetched_events, message_detail_fetch = self.fetch_instagram_message_detail_events(processing_payload, events)
             events.extend(fetched_events)
         except InstagramWebhookSignatureError as exc:
             raise PermissionError(str(exc)) from exc

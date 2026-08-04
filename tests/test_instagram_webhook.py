@@ -20,7 +20,7 @@ from backend.app.instagram_webhook import (
     verify_instagram_challenge,
     verify_instagram_signature,
 )
-from backend.app.store import LesStore, safe_instagram_webhook_log_result
+from backend.app.store import LesStore, filter_instagram_payload_for_target_user, safe_instagram_webhook_log_result
 
 
 class InstagramWebhookTestCase(unittest.TestCase):
@@ -77,6 +77,58 @@ class InstagramWebhookTestCase(unittest.TestCase):
         self.assertEqual("user-1", events[0].sender_id)
         self.assertEqual("ig-business", events[0].recipient_id)
         self.assertEqual("Halo", events[0].text)
+
+    def test_filter_instagram_payload_for_target_user_ignores_other_entries(self) -> None:
+        payload = {
+            "object": "instagram",
+            "entry": [
+                {"id": "ig-target", "messaging": [{"message": {"text": "Halo target"}}]},
+                {"id": "ig-other", "messaging": [{"message": {"text": "Halo other"}}]},
+            ],
+        }
+
+        with patch.dict(os.environ, {"IG_USER_ID": "ig-target"}, clear=False):
+            filtered_payload, summary = filter_instagram_payload_for_target_user(payload)
+
+        self.assertEqual([{"id": "ig-target", "messaging": [{"message": {"text": "Halo target"}}]}], filtered_payload["entry"])
+        self.assertEqual(
+            {
+                "enabled": True,
+                "target_user_configured": True,
+                "entry_count_before_filter": 2,
+                "entry_count_after_filter": 1,
+                "ignored_entries": 1,
+            },
+            summary,
+        )
+
+    def test_store_ignores_instagram_entry_that_does_not_match_target_user(self) -> None:
+        raw_body = json.dumps(
+            {
+                "object": "instagram",
+                "entry": [
+                    {
+                        "id": "ig-other",
+                        "messaging": [
+                            {
+                                "sender": {"id": "user-1"},
+                                "recipient": {"id": "ig-other"},
+                                "message": {"mid": "m_ignored", "text": "Halo"},
+                                "timestamp": 123,
+                            }
+                        ],
+                    }
+                ],
+            }
+        ).encode("utf-8")
+
+        with patch.dict(os.environ, {"IG_USER_ID": "ig-target"}, clear=False):
+            result = self.store.handle_instagram_webhook(raw_body, {})
+
+        self.assertEqual(0, result["events_received"])
+        self.assertEqual(0, result["diagnostics"]["entry_count"])
+        self.assertEqual(1, result["diagnostics"]["target_filter"]["ignored_entries"])
+        self.assertEqual([], result["results"])
 
     def test_extract_instagram_text_message_events_from_change_payload(self) -> None:
         payload = {
