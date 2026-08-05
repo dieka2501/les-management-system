@@ -526,12 +526,17 @@ def instagram_message_detail_to_event(
     message_detail: Mapping[str, Any],
     reference: InstagramMessageDetailReference,
 ) -> InstagramMessageEvent | None:
-    text = str(message_detail.get("message") or "").strip()
+    text = extract_instagram_message_detail_text(message_detail)
     if not text:
         return None
 
-    sender_id = nested_first_id(message_detail.get("from"))
-    recipient_id = nested_first_id(message_detail.get("to")) or reference.fallback_recipient_id or ""
+    sender_id = nested_first_id(message_detail.get("from")) or nested_first_id(message_detail.get("sender"))
+    recipient_id = (
+        nested_first_id(message_detail.get("to"))
+        or nested_first_id(message_detail.get("recipient"))
+        or reference.fallback_recipient_id
+        or ""
+    )
     if not sender_id or not recipient_id:
         return None
 
@@ -542,6 +547,79 @@ def instagram_message_detail_to_event(
         message_id=str(message_detail.get("id") or reference.message_id or "").strip() or None,
         timestamp=reference.fallback_timestamp,
     )
+
+
+def extract_instagram_message_detail_text(message_detail: Mapping[str, Any]) -> str:
+    for value in (
+        message_detail.get("message"),
+        message_detail.get("text"),
+        message_detail.get("body"),
+        message_detail.get("message_edit"),
+    ):
+        text = nested_text(value)
+        if text:
+            return text
+    return ""
+
+
+def nested_text(value: Any) -> str:
+    if isinstance(value, dict):
+        for key in ("text", "message", "body"):
+            text = nested_text(value.get(key))
+            if text:
+                return text
+        return ""
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def instagram_message_detail_diagnostic(
+    message_detail: Mapping[str, Any],
+    reference: InstagramMessageDetailReference,
+) -> dict[str, Any]:
+    text = extract_instagram_message_detail_text(message_detail)
+    sender_id = nested_first_id(message_detail.get("from")) or nested_first_id(message_detail.get("sender"))
+    recipient_id = (
+        nested_first_id(message_detail.get("to"))
+        or nested_first_id(message_detail.get("recipient"))
+        or reference.fallback_recipient_id
+        or ""
+    )
+    missing = []
+    if not text:
+        missing.append("message")
+    if not sender_id:
+        missing.append("sender")
+    if not recipient_id:
+        missing.append("recipient")
+
+    return {
+        "response_keys": sorted(str(key) for key in message_detail.keys()),
+        "message_value_type": safe_type_name(message_detail.get("message")),
+        "from_value_type": safe_type_name(message_detail.get("from")),
+        "to_value_type": safe_type_name(message_detail.get("to")),
+        "has_message": bool(text),
+        "has_sender": bool(sender_id),
+        "has_recipient": bool(recipient_id),
+        "missing": missing,
+    }
+
+
+def safe_type_name(value: Any) -> str:
+    if value is None:
+        return "missing"
+    if isinstance(value, dict):
+        return "object"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, (int, float)):
+        return "number"
+    return type(value).__name__
 
 
 def safe_instagram_fetch_error(exc: InstagramMessageFetchError) -> dict[str, Any]:

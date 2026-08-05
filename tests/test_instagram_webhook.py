@@ -290,6 +290,23 @@ class InstagramWebhookTestCase(unittest.TestCase):
         self.assertEqual("m_private_2", event.message_id)
         self.assertEqual(789, event.timestamp)
 
+    def test_instagram_message_detail_to_event_accepts_nested_message_text(self) -> None:
+        event = instagram_message_detail_to_event(
+            {
+                "id": "m_private_nested",
+                "message": {"text": "Halo dari shape nested"},
+                "sender": {"id": "user-nested"},
+                "recipient": {"id": "ig-business"},
+            },
+            InstagramMessageDetailReference(message_id="m_private_nested"),
+        )
+
+        self.assertIsNotNone(event)
+        assert event is not None
+        self.assertEqual("user-nested", event.sender_id)
+        self.assertEqual("ig-business", event.recipient_id)
+        self.assertEqual("Halo dari shape nested", event.text)
+
     def test_summarize_instagram_payload_identifies_non_text_events(self) -> None:
         payload = {
             "object": "instagram",
@@ -355,8 +372,58 @@ class InstagramWebhookTestCase(unittest.TestCase):
         self.assertEqual(1, result["events_received"])
         self.assertEqual(1, result["message_detail_fetch"]["attempted"])
         self.assertEqual(1, result["message_detail_fetch"]["resolved"])
+        self.assertEqual([], result["message_detail_fetch"]["empty_or_incomplete_details"])
         self.assertEqual("greeting", result["results"][0]["intent"])
         self.assertNotIn("Halo", json.dumps(result["message_detail_fetch"], ensure_ascii=False))
+
+    def test_store_includes_safe_diagnostic_for_incomplete_message_detail(self) -> None:
+        raw_body = json.dumps(
+            {
+                "object": "instagram",
+                "entry": [
+                    {
+                        "id": "ig-business",
+                        "messaging": [
+                            {
+                                "timestamp": 456,
+                                "message_edit": {"mid": "m_private_missing", "num_edit": 1},
+                            }
+                        ],
+                    }
+                ],
+            }
+        ).encode("utf-8")
+
+        with patch(
+            "backend.app.store.fetch_instagram_message_detail",
+            return_value={
+                "id": "m_private_missing",
+                "created_time": "2026-08-05T14:00:00+0000",
+                "from": {"id": "private-user-id"},
+            },
+        ):
+            result = self.store.handle_instagram_webhook(raw_body, {})
+
+        self.assertEqual(0, result["events_received"])
+        self.assertEqual(1, result["message_detail_fetch"]["empty_or_incomplete"])
+        self.assertEqual(
+            [
+                {
+                    "response_keys": ["created_time", "from", "id"],
+                    "message_value_type": "missing",
+                    "from_value_type": "object",
+                    "to_value_type": "missing",
+                    "has_message": False,
+                    "has_sender": True,
+                    "has_recipient": True,
+                    "missing": ["message"],
+                }
+            ],
+            result["message_detail_fetch"]["empty_or_incomplete_details"],
+        )
+        encoded = json.dumps(result["message_detail_fetch"], ensure_ascii=False)
+        self.assertNotIn("private-user-id", encoded)
+        self.assertNotIn("m_private_missing", encoded)
 
     def test_store_keeps_fetch_errors_sanitized(self) -> None:
         raw_body = json.dumps(

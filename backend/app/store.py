@@ -19,6 +19,7 @@ from .instagram_webhook import (
     extract_instagram_message_events,
     extract_instagram_message_detail_references,
     fetch_instagram_message_detail,
+    instagram_message_detail_diagnostic,
     instagram_message_detail_to_event,
     instagram_raw_webhook_debug_enabled,
     instagram_reply_mode,
@@ -1258,6 +1259,7 @@ class LesStore:
             "resolved": 0,
             "skipped_existing": 0,
             "empty_or_incomplete": 0,
+            "empty_or_incomplete_details": [],
             "errors": [],
         }
 
@@ -1278,6 +1280,9 @@ class LesStore:
             event = instagram_message_detail_to_event(message_detail, reference)
             if event is None:
                 summary["empty_or_incomplete"] += 1
+                summary["empty_or_incomplete_details"].append(
+                    instagram_message_detail_diagnostic(message_detail, reference)
+                )
                 continue
 
             known_message_ids.add(event.message_id or reference.message_id)
