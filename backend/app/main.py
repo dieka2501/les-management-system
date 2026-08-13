@@ -15,7 +15,13 @@ from .provider_auth import (
     make_provider_logout_cookie,
     provider_auth_required,
 )
-from .store import LesStore, NotFoundError, ValidationError, safe_instagram_webhook_log_result
+from .store import (
+    LesStore,
+    NotFoundError,
+    ValidationError,
+    safe_instagram_webhook_log_result,
+    safe_whatsapp_webhook_log_result,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -25,8 +31,10 @@ PUBLIC_API_PATHS = {
     "/api/provider/auth",
     "/api/provider/login",
     "/api/provider/logout",
+    "/api/v1/webhooks/fonnte",
 }
 PROTECTED_DASHBOARD_PATHS = {"", "/", "/index.html"}
+FONNTE_WEBHOOK_PATHS = {"/webhooks/fonnte", "/api/v1/webhooks/fonnte"}
 
 
 def is_protected_api_path(path: str) -> bool:
@@ -85,6 +93,16 @@ class LesRequestHandler(BaseHTTPRequestHandler):
 
             if path == "/api/dashboard-data":
                 self.send_json(self.store.dashboard_data())
+            elif path in FONNTE_WEBHOOK_PATHS:
+                secret_status = self.store.verify_whatsapp_webhook_secret(parsed.query)
+                self.send_json(
+                    {
+                        "status": "ok",
+                        "message": "Fonnte webhook endpoint is ready.",
+                        "method": "GET",
+                        "secret": secret_status,
+                    }
+                )
             elif path == "/webhooks/instagram":
                 challenge = self.store.verify_instagram_webhook_challenge(parsed.query)
                 self.send_text(challenge)
@@ -148,8 +166,20 @@ class LesRequestHandler(BaseHTTPRequestHandler):
             self.handle_exception(exc)
 
     def do_POST(self) -> None:
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
         try:
+            if path in FONNTE_WEBHOOK_PATHS:
+                secret_status = self.store.verify_whatsapp_webhook_secret(parsed.query)
+                data = self.read_json_body()
+                result = self.store.handle_whatsapp_webhook(data, secret_status=secret_status)
+                print(
+                    "Fonnte webhook processed: "
+                    f"{json.dumps(safe_whatsapp_webhook_log_result(result), ensure_ascii=False)}"
+                )
+                self.send_json({"status": "ok", **result})
+                return
+
             if path == "/webhooks/instagram":
                 raw_body = self.read_raw_body()
                 raw_debug_enabled = instagram_raw_webhook_debug_enabled()

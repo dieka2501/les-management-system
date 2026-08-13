@@ -9,6 +9,18 @@ from typing import Any
 
 from .chat_simulation import FAQ_SIMULATION_SCRIPT, load_chatbot_knowledge, simulate_provider_reply
 from .database import connect, migrate, seed_master_data
+from .fonnte import (
+    FonnteMessageEvent,
+    FonnteSendError,
+    FonnteWebhookError,
+    FonnteWebhookSecretError,
+    extract_fonnte_message_events,
+    send_fonnte_text_message,
+    summarize_fonnte_webhook_payload,
+    verify_fonnte_secret,
+    whatsapp_reply_mode,
+    whatsapp_send_enabled,
+)
 from .gemini_chatbot import GeminiConfigurationError, GeminiServiceError, simulate_provider_ai_reply
 from .instagram_webhook import (
     InstagramMessageEvent,
@@ -90,6 +102,36 @@ def safe_instagram_webhook_log_result(result: dict[str, Any]) -> dict[str, Any]:
         "events_received": result.get("events_received"),
         "diagnostics": result.get("diagnostics"),
         "message_detail_fetch": result.get("message_detail_fetch"),
+        "results": safe_results,
+    }
+
+
+def safe_whatsapp_webhook_log_result(result: dict[str, Any]) -> dict[str, Any]:
+    safe_results = []
+    for item in result.get("results", []) or []:
+        if not isinstance(item, dict):
+            continue
+        send_result = item.get("send_result") if isinstance(item.get("send_result"), dict) else {}
+        safe_results.append(
+            {
+                "status": item.get("status", "processed"),
+                "reply_mode": item.get("reply_mode"),
+                "intent": item.get("intent"),
+                "stage": item.get("stage"),
+                "sent": bool(item.get("sent")),
+                "send": {
+                    "enabled": bool(send_result.get("enabled")),
+                    "sent": bool(send_result.get("sent")),
+                    "has_error": bool(send_result.get("error")),
+                },
+            }
+        )
+
+    return {
+        "source": result.get("source"),
+        "secret": result.get("secret"),
+        "events_received": result.get("events_received"),
+        "diagnostics": result.get("diagnostics"),
         "results": safe_results,
     }
 
@@ -1213,6 +1255,111 @@ class LesStore:
         if mode not in aliases:
             raise ValidationError("Mode balasan harus rule_based atau gemini.")
         return aliases[mode]
+
+    def verify_whatsapp_webhook_secret(self, query: str) -> str:
+        try:
+            return verify_fonnte_secret(query)
+        except FonnteWebhookSecretError as exc:
+            raise PermissionError(str(exc)) from exc
+
+    def handle_whatsapp_webhook(
+        self,
+        payload: dict[str, Any],
+        *,
+        secret_status: str = "not_checked",
+    ) -> dict[str, Any]:
+        try:
+            events = extract_fonnte_message_events(payload)
+            diagnostics = summarize_fonnte_webhook_payload(payload)
+        except FonnteWebhookError as exc:
+            raise ValidationError(str(exc)) from exc
+
+        results = [self.handle_whatsapp_message_event(event) for event in events]
+        return {
+            "source": "fonnte",
+            "secret": secret_status,
+            "events_received": len(events),
+            "diagnostics": diagnostics,
+            "results": results,
+        }
+
+    def handle_whatsapp_message_event(self, event: FonnteMessageEvent) -> dict[str, Any]:
+        session = self.find_or_create_whatsapp_chat_session(event)
+        if session["current_stage"] == "transferred_to_admin":
+            return {
+                "session_id": session["id"],
+                "status": "ignored_transferred_to_admin",
+                "sent": False,
+            }
+
+        mode = self.normalize_provider_chat_reply_mode(
+            whatsapp_reply_mode(default=self.default_whatsapp_reply_mode())
+        )
+        result = self.send_provider_chat_simulation_message(
+            session["id"],
+            {
+                "message": event.text,
+                "mode": mode,
+            },
+        )
+        send_result: dict[str, Any] = {"enabled": whatsapp_send_enabled(), "sent": False}
+        if whatsapp_send_enabled():
+            try:
+                send_result = {
+                    "enabled": True,
+                    "sent": True,
+                    "response": send_fonnte_text_message(
+                        target_number=event.sender_number,
+                        text=result["assistant_message"]["message"],
+                    ),
+                }
+            except FonnteSendError as exc:
+                send_result = {"enabled": True, "sent": False, "error": str(exc)}
+
+        return {
+            "session_id": result["session"]["id"],
+            "reply_mode": mode,
+            "intent": result["reply"]["intent"],
+            "stage": result["reply"]["stage"],
+            "sent": bool(send_result.get("sent")),
+            "send_result": send_result,
+        }
+
+    def default_whatsapp_reply_mode(self) -> str:
+        if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+            return "gemini"
+        return "rule_based"
+
+    def find_or_create_whatsapp_chat_session(self, event: FonnteMessageEvent) -> dict[str, Any]:
+        title = f"WhatsApp {event.sender_number}"
+        with self.connection() as conn:
+            row = conn.execute(
+                """
+                SELECT *
+                FROM provider_chat_simulation_sessions
+                WHERE channel = 'whatsapp'
+                  AND source = 'fonnte_webhook'
+                  AND title = ?
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (title,),
+            ).fetchone()
+            if row:
+                return dict(row)
+
+            code = self.next_code(conn, "provider_chat_simulation_sessions", "SIM")
+            cursor = conn.execute(
+                """
+                INSERT INTO provider_chat_simulation_sessions (
+                    code, title, channel, source, current_stage
+                )
+                VALUES (?, ?, 'whatsapp', 'fonnte_webhook', 'start')
+                """,
+                (code, title),
+            )
+            conn.commit()
+            return self.get_provider_chat_simulation_session_row(conn, int(cursor.lastrowid))
 
     def verify_instagram_webhook_challenge(self, query: str) -> str:
         try:

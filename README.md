@@ -284,6 +284,72 @@ Baik, saya akan hubungkan ke admin.
 
 Setelah itu status sesi menjadi `transferred_to_admin`, dan composer di UI simulator dimatikan agar percakapan berikutnya ditangani admin manusia.
 
+## Integrasi WhatsApp via Fonnte
+
+Webhook WhatsApp/Fonnte berjalan berdampingan dengan Instagram DM:
+
+```text
+GET  /webhooks/fonnte
+POST /webhooks/fonnte
+GET  /api/v1/webhooks/fonnte
+POST /api/v1/webhooks/fonnte
+```
+
+Alias `/api/v1/webhooks/fonnte` disediakan agar flow connect dari project ISP bisa dipakai kembali. Handler WA ada di `backend/app/fonnte.py`, lalu dipasang ke HTTP server lewat `backend/app/main.py`.
+
+Alurnya:
+
+1. Fonnte mengirim event pesan masuk ke endpoint webhook.
+2. Backend mengambil nomor pengirim dan teks pesan dari payload.
+3. Pesan dimasukkan ke sistem simulasi chatbot dengan channel `whatsapp`.
+4. Chatbot menjawab memakai mode `gemini` jika API key tersedia, atau `rule_based` jika tidak.
+5. Jika `WA_SEND_ENABLED=1`, backend mengirim balasan ke nomor pengirim via Fonnte.
+6. Jika sesi sudah `transferred_to_admin`, bot tidak membalas lagi supaya admin manusia bisa mengambil alih.
+
+### Environment variable WhatsApp/Fonnte
+
+```bash
+FONNTE_API_URL=https://api.fonnte.com/send
+FONNTE_TOKEN=token-fonnte
+FONNTE_DEFAULT_COUNTRY_CODE=62
+FONNTE_WEBHOOK_SECRET=buat-string-random
+WA_REPLY_MODE=
+WA_SEND_ENABLED=1
+```
+
+Catatan:
+
+- `FONNTE_WEBHOOK_SECRET` opsional, tapi direkomendasikan. Jika diset, panggil webhook dengan query `?secret=...`.
+- `WA_REPLY_MODE` bisa dikosongkan untuk auto, atau diisi `gemini` / `rule_based`.
+- `WA_SEND_ENABLED=0` berguna untuk dry run: webhook diterima dan diproses, tapi backend tidak mengirim balasan ke WhatsApp.
+- `FONNTE_TOKEN` jangan pernah dicommit ke git.
+- Endpoint yang dipakai di dashboard Fonnte bisa salah satu dari:
+
+```text
+https://domain-kamu/webhooks/fonnte?secret=buat-string-random
+https://domain-kamu/api/v1/webhooks/fonnte?secret=buat-string-random
+```
+
+Test webhook lokal:
+
+```bash
+curl "http://127.0.0.1:8001/api/v1/webhooks/fonnte?secret=$FONNTE_WEBHOOK_SECRET"
+```
+
+Test event WhatsApp lokal:
+
+```bash
+curl -X POST "http://127.0.0.1:8001/api/v1/webhooks/fonnte?secret=$FONNTE_WEBHOOK_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"device":"6281283679665","sender":"08123456789","message":"Halo kak","name":"Ibu Rina"}'
+```
+
+Untuk tes kirim langsung via CLI:
+
+```bash
+python -m backend.app.cli.send_whatsapp -n 08123456789 -m "Halo dari CLI"
+```
+
 ## Integrasi Instagram DM
 
 Webhook Instagram disiapkan langsung di backend:

@@ -53,6 +53,8 @@ class ServerConfigTestCase(unittest.TestCase):
     def test_auth_and_webhook_paths_stay_public(self) -> None:
         self.assertFalse(is_protected_api_path("/api/provider/login"))
         self.assertFalse(is_protected_api_path("/api/provider/auth"))
+        self.assertFalse(is_protected_api_path("/api/v1/webhooks/fonnte"))
+        self.assertFalse(is_protected_api_path("/webhooks/fonnte"))
         self.assertFalse(is_protected_api_path("/webhooks/instagram"))
 
     def test_dashboard_page_paths_are_protected(self) -> None:
