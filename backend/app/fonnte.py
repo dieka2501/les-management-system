@@ -104,12 +104,36 @@ def verify_fonnte_secret(query: str | Mapping[str, list[str]]) -> str:
 
 
 def parse_fonnte_webhook_payload(raw_body: bytes) -> dict[str, Any]:
+    if not raw_body:
+        return {}
+
+    text = raw_body.decode("utf-8", errors="replace").strip()
+    if not text:
+        return {}
+
     try:
-        payload = json.loads(raw_body.decode("utf-8"))
-    except json.JSONDecodeError as exc:
-        raise FonnteWebhookError("Payload webhook Fonnte bukan JSON valid.") from exc
-    if not isinstance(payload, dict):
-        raise FonnteWebhookError("Payload webhook Fonnte harus berupa object JSON.")
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        form_payload = parse_form_payload(text)
+        if form_payload:
+            return form_payload
+        raise FonnteWebhookError("Payload webhook Fonnte bukan JSON atau form payload valid.")
+
+    if isinstance(payload, dict):
+        return payload
+    raise FonnteWebhookError("Payload webhook Fonnte harus berupa object JSON.")
+
+
+def parse_form_payload(text: str) -> dict[str, Any]:
+    parsed = parse.parse_qs(text, keep_blank_values=True)
+    if not parsed:
+        return {}
+
+    payload: dict[str, Any] = {}
+    for key, values in parsed.items():
+        if not key:
+            continue
+        payload[key] = values[0] if len(values) == 1 else values
     return payload
 
 

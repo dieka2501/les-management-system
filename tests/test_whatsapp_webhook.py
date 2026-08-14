@@ -11,6 +11,7 @@ from backend.app.fonnte import (
     FonnteWebhookSecretError,
     extract_fonnte_message_events,
     normalize_number,
+    parse_fonnte_webhook_payload,
     verify_fonnte_secret,
 )
 from backend.app.store import LesStore, safe_whatsapp_webhook_log_result
@@ -66,6 +67,41 @@ class WhatsAppWebhookTestCase(unittest.TestCase):
         self.assertEqual("Ibu Rina", events[0].sender_name)
         self.assertEqual("6281283679665", events[0].device_identifier)
         self.assertEqual("wa-1", events[0].message_id)
+
+    def test_parse_fonnte_webhook_payload_accepts_form_encoded_body(self) -> None:
+        payload = parse_fonnte_webhook_payload(
+            b"device=6281283679665&sender=08123456789&message=Halo+kak&name=Ibu+Rina"
+        )
+
+        self.assertEqual(
+            {
+                "device": "6281283679665",
+                "sender": "08123456789",
+                "message": "Halo kak",
+                "name": "Ibu Rina",
+            },
+            payload,
+        )
+
+    def test_store_handles_whatsapp_form_encoded_webhook_without_sending(self) -> None:
+        raw_body = b"device=6281283679665&sender=08123456789&message=Halo+kak&name=Ibu+Rina"
+
+        with patch.dict(
+            os.environ,
+            {
+                "WA_SEND_ENABLED": "0",
+                "WHATSAPP_SEND_ENABLED": "0",
+                "FONNTE_SEND_ENABLED": "0",
+                "WA_REPLY_MODE": "rule_based",
+                "GEMINI_API_KEY": "",
+                "GOOGLE_API_KEY": "",
+            },
+            clear=False,
+        ):
+            result = self.store.handle_whatsapp_raw_webhook(raw_body, secret_status="verified")
+
+        self.assertEqual(1, result["events_received"])
+        self.assertEqual("greeting", result["results"][0]["intent"])
 
     def test_store_handles_whatsapp_webhook_without_sending_when_disabled(self) -> None:
         payload = {

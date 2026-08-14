@@ -15,6 +15,7 @@ from .fonnte import (
     FonnteWebhookError,
     FonnteWebhookSecretError,
     extract_fonnte_message_events,
+    parse_fonnte_webhook_payload,
     send_fonnte_text_message,
     summarize_fonnte_webhook_payload,
     verify_fonnte_secret,
@@ -1282,6 +1283,18 @@ class LesStore:
             "diagnostics": diagnostics,
             "results": results,
         }
+
+    def handle_whatsapp_raw_webhook(
+        self,
+        raw_body: bytes,
+        *,
+        secret_status: str = "not_checked",
+    ) -> dict[str, Any]:
+        try:
+            payload = parse_fonnte_webhook_payload(raw_body)
+        except FonnteWebhookError as exc:
+            raise ValidationError(str(exc)) from exc
+        return self.handle_whatsapp_webhook(payload, secret_status=secret_status)
 
     def handle_whatsapp_message_event(self, event: FonnteMessageEvent) -> dict[str, Any]:
         session = self.find_or_create_whatsapp_chat_session(event)

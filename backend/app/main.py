@@ -171,8 +171,8 @@ class LesRequestHandler(BaseHTTPRequestHandler):
         try:
             if path in FONNTE_WEBHOOK_PATHS:
                 secret_status = self.store.verify_whatsapp_webhook_secret(parsed.query)
-                data = self.read_json_body()
-                result = self.store.handle_whatsapp_webhook(data, secret_status=secret_status)
+                raw_body = self.read_raw_body()
+                result = self.store.handle_whatsapp_raw_webhook(raw_body, secret_status=secret_status)
                 print(
                     "Fonnte webhook processed: "
                     f"{json.dumps(safe_whatsapp_webhook_log_result(result), ensure_ascii=False)}"
