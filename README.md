@@ -320,7 +320,7 @@ WA_SEND_ENABLED=1
 Catatan:
 
 - `FONNTE_WEBHOOK_SECRET` opsional, tapi direkomendasikan. Jika diset, panggil webhook dengan query `?secret=...`.
-- `WA_REPLY_MODE` bisa dikosongkan untuk auto, atau diisi `gemini` / `rule_based`.
+- `WA_REPLY_MODE` bisa dikosongkan atau diisi `auto` untuk mode otomatis, atau diisi `gemini` / `rule_based`.
 - `WA_SEND_ENABLED=0` berguna untuk dry run: webhook diterima dan diproses, tapi backend tidak mengirim balasan ke WhatsApp.
 - `FONNTE_TOKEN` jangan pernah dicommit ke git.
 - Endpoint yang dipakai di dashboard Fonnte bisa salah satu dari:

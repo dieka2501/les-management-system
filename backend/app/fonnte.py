@@ -73,7 +73,13 @@ def whatsapp_send_enabled() -> bool:
 
 
 def whatsapp_reply_mode(default: str = "rule_based") -> str:
-    return _first_env("WA_REPLY_MODE", "WHATSAPP_REPLY_MODE", "FONNTE_REPLY_MODE") or default
+    mode = _first_env("WA_REPLY_MODE", "WHATSAPP_REPLY_MODE", "FONNTE_REPLY_MODE")
+    normalized = mode.strip().lower().replace("-", "_")
+    if not normalized or normalized in {"1", "true", "yes", "on", "auto", "default"}:
+        return default
+    if normalized in {"0", "false", "no", "off"}:
+        return "rule_based"
+    return mode
 
 
 def normalize_number(number: str, country_code: str | None = None) -> str:

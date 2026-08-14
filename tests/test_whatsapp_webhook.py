@@ -13,6 +13,7 @@ from backend.app.fonnte import (
     normalize_number,
     parse_fonnte_webhook_payload,
     verify_fonnte_secret,
+    whatsapp_reply_mode,
 )
 from backend.app.store import LesStore, safe_whatsapp_webhook_log_result
 
@@ -34,6 +35,17 @@ class WhatsAppWebhookTestCase(unittest.TestCase):
             self.assertEqual("verified", verify_fonnte_secret("secret=wa-secret"))
             with self.assertRaises(FonnteWebhookSecretError):
                 verify_fonnte_secret("secret=wrong")
+
+    def test_whatsapp_reply_mode_auto_uses_default_mode(self) -> None:
+        with patch.dict(os.environ, {"WA_REPLY_MODE": "auto"}, clear=False):
+            self.assertEqual("rule_based", whatsapp_reply_mode(default="rule_based"))
+            self.assertEqual("gemini", whatsapp_reply_mode(default="gemini"))
+
+    def test_whatsapp_reply_mode_boolean_like_values_do_not_break_webhook(self) -> None:
+        with patch.dict(os.environ, {"WA_REPLY_MODE": "1"}, clear=False):
+            self.assertEqual("rule_based", whatsapp_reply_mode(default="rule_based"))
+        with patch.dict(os.environ, {"WA_REPLY_MODE": "0"}, clear=False):
+            self.assertEqual("rule_based", whatsapp_reply_mode(default="gemini"))
 
     def test_extract_fonnte_message_events_accepts_common_payload_shapes(self) -> None:
         payload = {
