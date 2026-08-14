@@ -84,7 +84,7 @@ GEMINI_API_KEY=
 GOOGLE_API_KEY=
 GEMINI_MODEL=gemini-3.1-flash-lite
 
-IG_WEBHOOK_VERIFY_TOKEN=change-me-madani-verify-token
+IG_WEBHOOK_VERIFY_TOKEN=""
 IG_APP_SECRET=
 IG_ACCESS_TOKEN=
 IG_USER_ID=
@@ -188,7 +188,7 @@ Area internal dilindungi form login password-only:
 Password disimpan di `.env`:
 
 ```bash
-APP_AUTH_PASSWORD=madani-internal-dev
+APP_AUTH_PASSWORD
 ```
 
 Tidak ada username. Setelah password benar, browser akan menerima session cookie `HttpOnly` selama 12 jam. Dashboard operasional, API CRUD/generate/list data, dan API provider seperti `/api/provider/chat-simulations` ikut diproteksi, jadi tidak hanya tampilan UI yang terkunci.
