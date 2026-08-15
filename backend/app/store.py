@@ -7,7 +7,15 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-from .chat_simulation import FAQ_SIMULATION_SCRIPT, load_chatbot_knowledge, simulate_provider_reply
+from .chat_simulation import (
+    FAQ_SIMULATION_SCRIPT,
+    SimulationReply,
+    chat_lifecycle_reply,
+    load_chatbot_knowledge,
+    maybe_add_close_prompt,
+    normalize_text,
+    simulate_provider_reply,
+)
 from .database import connect, migrate, seed_master_data
 from .fonnte import (
     FonnteMessageEvent,
@@ -1191,11 +1199,18 @@ class LesStore:
             self.get_provider_chat_simulation_session_row(conn, session_id)
             history = self.list_provider_chat_simulation_messages(conn, session_id)
             try:
-                reply = (
-                    simulate_provider_ai_reply(message, history)
-                    if reply_mode == "gemini"
-                    else simulate_provider_reply(message, history)
-                )
+                lifecycle_reply = chat_lifecycle_reply(normalize_text(message), history)
+                db_reply = None if lifecycle_reply else self.find_provider_chat_training_override(conn, message)
+                if lifecycle_reply:
+                    reply = lifecycle_reply
+                elif db_reply:
+                    reply = maybe_add_close_prompt(db_reply, history)
+                else:
+                    reply = (
+                        simulate_provider_ai_reply(message, history)
+                        if reply_mode == "gemini"
+                        else simulate_provider_reply(message, history)
+                    )
             except (GeminiConfigurationError, GeminiServiceError) as exc:
                 raise ValidationError(str(exc)) from exc
             turn_index = self.next_provider_chat_turn_index(conn, session_id)
@@ -1256,6 +1271,61 @@ class LesStore:
         if mode not in aliases:
             raise ValidationError("Mode balasan harus rule_based atau gemini.")
         return aliases[mode]
+
+    def find_provider_chat_training_override(
+        self,
+        conn: sqlite3.Connection,
+        message: str,
+    ) -> SimulationReply | None:
+        normalized_message = normalize_text(message)
+        if not normalized_message:
+            return None
+
+        rows = conn.execute(
+            """
+            SELECT s.code AS session_code,
+                   parent.message AS parent_message,
+                   COALESCE(parent.expected_reply, assistant.message) AS expected_reply,
+                   COALESCE(parent.intent, assistant.intent, 'training_override') AS intent,
+                   COALESCE(parent.matched_reference, assistant.matched_reference, 'provider_training_override') AS matched_reference,
+                   COALESCE(parent.confidence, assistant.confidence, 0.98) AS confidence,
+                   parent.metadata_json AS parent_metadata_json,
+                   assistant.metadata_json AS assistant_metadata_json
+            FROM provider_chat_simulation_messages parent
+            JOIN provider_chat_simulation_sessions s ON s.id = parent.session_id
+            LEFT JOIN provider_chat_simulation_messages assistant
+              ON assistant.session_id = parent.session_id
+             AND assistant.turn_index = parent.turn_index
+             AND assistant.role = 'assistant'
+            WHERE parent.role = 'parent'
+              AND COALESCE(parent.expected_reply, assistant.message, '') != ''
+            ORDER BY s.updated_at DESC, parent.id DESC
+            """
+        ).fetchall()
+
+        for row in rows:
+            if normalize_text(row["parent_message"]) != normalized_message:
+                continue
+            parent_metadata = self.decode_metadata(row["parent_metadata_json"])
+            assistant_metadata = self.decode_metadata(row["assistant_metadata_json"])
+            if not (parent_metadata.get("edited_by_provider") or assistant_metadata.get("edited_by_provider")):
+                continue
+
+            tags = [
+                *(parent_metadata.get("training_tags") or assistant_metadata.get("training_tags") or []),
+                "db-training-override",
+                "provider-edited",
+            ]
+            return SimulationReply(
+                message=str(row["expected_reply"]),
+                intent=str(row["intent"] or "training_override"),
+                stage="db_training_override",
+                matched_reference=f"{row['matched_reference']}, db/provider-training:{row['session_code']}",
+                confidence=float(row["confidence"] or 0.98),
+                needs_review=False,
+                training_tags=tags,
+            )
+        return None
 
     def verify_whatsapp_webhook_secret(self, query: str) -> str:
         try:
@@ -1622,6 +1692,7 @@ class LesStore:
                 metadata = self.decode_metadata(item.pop("metadata_json"))
                 item["needs_review"] = bool(item["needs_review"])
                 item["training_tags"] = metadata.get("training_tags", [])
+                item["edited_by_provider"] = bool(metadata.get("edited_by_provider"))
                 examples.append(item)
             return examples
 

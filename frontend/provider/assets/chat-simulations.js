@@ -349,6 +349,7 @@ function renderTrainingExamples() {
         <p>${escapeHtml(item.expected_reply || "")}</p>
         <div class="message-meta">
           <span class="tag ${item.needs_review ? "review" : ""}">${item.needs_review ? "review" : "ready"}</span>
+          ${item.edited_by_provider ? `<span class="tag">koreksi aktif</span>` : ""}
           <span class="tag">${escapeHtml(item.matched_reference || "no-ref")}</span>
         </div>
       </article>

@@ -170,6 +170,28 @@ class ProviderChatSimulationTestCase(unittest.TestCase):
             examples[0]["expected_reply"],
         )
         self.assertFalse(examples[0]["needs_review"])
+        self.assertTrue(examples[0]["edited_by_provider"])
+
+    def test_provider_edited_response_is_used_as_database_training_override(self) -> None:
+        session = self.store.create_provider_chat_simulation_session({"title": "Latihan koreksi DB"})
+        result = self.store.send_provider_chat_simulation_message(
+            session["id"],
+            {"message": "Berapa harga English?"},
+        )
+        self.store.update_provider_chat_simulation_message(
+            session["id"],
+            result["assistant_message"]["id"],
+            {"message": "Koreksi DB: harga English harus dikonfirmasi admin dulu."},
+        )
+
+        new_session = self.store.create_provider_chat_simulation_session({"title": "Sesi setelah koreksi"})
+        followup = self.store.send_provider_chat_simulation_message(
+            new_session["id"],
+            {"message": "Berapa harga English?"},
+        )
+
+        self.assertEqual("Koreksi DB: harga English harus dikonfirmasi admin dulu.", followup["assistant_message"]["message"])
+        self.assertIn("db-training-override", followup["reply"]["training_tags"])
 
     def test_gemini_guardrail_rejects_unrelated_questions_without_calling_api(self) -> None:
         def fail_if_called(prompt: str) -> str:
