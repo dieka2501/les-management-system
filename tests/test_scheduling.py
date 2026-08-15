@@ -75,6 +75,61 @@ class SchedulingTestCase(unittest.TestCase):
                 }
             )
 
+    def test_subject_can_be_created_updated_and_archived(self) -> None:
+        subject = self.store.create_subject(
+            {
+                "name": "Fisika",
+                "description": "Pendampingan materi Fisika.",
+            }
+        )
+        self.assertEqual("MAP-0005", subject["code"])
+        self.assertEqual("Fisika", subject["name"])
+
+        updated = self.store.update_subject(
+            subject["id"],
+            {
+                "name": "Fisika Dasar",
+                "description": "Fisika untuk SMP dan SMA.",
+            },
+        )
+        self.assertEqual("Fisika Dasar", updated["name"])
+
+        archived = self.store.archive_subject(subject["id"])
+        self.assertEqual("archived", archived["status"])
+        self.assertNotIn("Fisika Dasar", [item["name"] for item in self.store.list_subjects()])
+
+    def test_subject_with_active_schedule_cannot_be_archived(self) -> None:
+        self.store.create_schedule(
+            {
+                "student_id": self.student["id"],
+                "tutor_id": self.tutor["id"],
+                "subject_id": self.math_id,
+                "day_of_week": 0,
+                "start_time": "16:00",
+                "end_time": "17:00",
+            }
+        )
+
+        with self.assertRaisesRegex(ValidationError, "jadwal aktif"):
+            self.store.archive_subject(self.math_id)
+
+    def test_tutor_update_accepts_multiple_availability_days(self) -> None:
+        updated = self.store.update_tutor(
+            self.tutor["id"],
+            {
+                "full_name": "Guru Test",
+                "education": "S1 Pendidikan Matematika",
+                "subject_ids": [self.math_id],
+                "availabilities": [
+                    {"day_of_week": 2, "start_time": "14:00", "end_time": "17:00"},
+                    {"day_of_week": 4, "start_time": "15:00", "end_time": "18:00"},
+                    {"day_of_week": 5, "start_time": "09:00", "end_time": "12:00"},
+                ],
+            },
+        )
+
+        self.assertEqual([2, 4, 5], [item["day_of_week"] for item in updated["availabilities"]])
+
     def test_generator_returns_non_overlapping_slot(self) -> None:
         self.store.create_schedule(
             {

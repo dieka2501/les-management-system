@@ -312,6 +312,7 @@ class LesStore:
                 "parents": conn.execute("SELECT COUNT(*) FROM parents WHERE status = 'active'").fetchone()[0],
                 "students": conn.execute("SELECT COUNT(*) FROM students WHERE status = 'active'").fetchone()[0],
                 "tutors": conn.execute("SELECT COUNT(*) FROM tutors WHERE status = 'active'").fetchone()[0],
+                "subjects": conn.execute("SELECT COUNT(*) FROM subjects WHERE status = 'active'").fetchone()[0],
                 "schedules": conn.execute(
                     "SELECT COUNT(*) FROM schedules WHERE status IN ('draft', 'active')"
                 ).fetchone()[0],
@@ -445,6 +446,64 @@ class LesStore:
                     "SELECT * FROM subjects WHERE status = 'active' ORDER BY name"
                 ).fetchall()
             )
+
+    def create_subject(self, data: dict[str, Any]) -> dict[str, Any]:
+        name = require_text(data, "name", "Nama mata pelajaran")
+        description = optional_text(data, "description")
+        with self.connection() as conn:
+            code = self.next_code(conn, "subjects", "MAP")
+            try:
+                cursor = conn.execute(
+                    """
+                    INSERT INTO subjects (code, name, description)
+                    VALUES (?, ?, ?)
+                    """,
+                    (code, name, description),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise ValidationError("Nama mata pelajaran sudah digunakan.") from exc
+            conn.commit()
+            return self.get_subject(cursor.lastrowid)
+
+    def update_subject(self, subject_id: int, data: dict[str, Any]) -> dict[str, Any]:
+        self.get_subject(subject_id)
+        with self.connection() as conn:
+            try:
+                conn.execute(
+                    """
+                    UPDATE subjects
+                    SET name = COALESCE(NULLIF(?, ''), name),
+                        description = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    (str(data.get("name", "")).strip(), optional_text(data, "description"), subject_id),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise ValidationError("Nama mata pelajaran sudah digunakan.") from exc
+            conn.commit()
+        return self.get_subject(subject_id)
+
+    def archive_subject(self, subject_id: int) -> dict[str, Any]:
+        self.get_subject(subject_id)
+        with self.connection() as conn:
+            active_schedule_count = conn.execute(
+                """
+                SELECT COUNT(*)
+                FROM schedules
+                WHERE subject_id = ?
+                  AND status IN ('draft', 'active')
+                """,
+                (subject_id,),
+            ).fetchone()[0]
+            if active_schedule_count:
+                raise ValidationError("Mata pelajaran masih dipakai jadwal aktif, tidak bisa diarsipkan.")
+            conn.execute(
+                "UPDATE subjects SET status = 'archived', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (subject_id,),
+            )
+            conn.commit()
+        return {"id": subject_id, "status": "archived"}
 
     def subject_by_name(self, name: str) -> dict[str, Any]:
         with self.connection() as conn:
@@ -1940,7 +1999,9 @@ class LesStore:
             raise ValidationError("Cabang jadwal harus sama dengan cabang murid.")
         if tutor["branch_id"] != branch["id"]:
             raise ValidationError("Cabang jadwal harus sama dengan cabang guru.")
-        self.get_subject(slot["subject_id"], conn)
+        subject = self.get_subject(slot["subject_id"], conn)
+        if subject["status"] != "active":
+            raise ValidationError("Mata pelajaran tidak aktif.")
         self.ensure_student_has_subject(conn, slot["student_id"], slot["subject_id"])
         self.ensure_tutor_teaches_subject(conn, slot["tutor_id"], slot["subject_id"])
         self.ensure_tutor_available(conn, slot)

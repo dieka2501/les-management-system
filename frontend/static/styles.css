@@ -198,7 +198,7 @@ p {
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 14px;
   margin-bottom: 18px;
 }
@@ -330,6 +330,36 @@ p {
   gap: 12px;
 }
 
+.availability-editor {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.availability-head,
+.availability-row {
+  display: grid;
+  gap: 10px;
+}
+
+.availability-head {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.availability-row {
+  grid-template-columns: minmax(120px, 0.9fr) minmax(110px, 0.7fr) minmax(110px, 0.7fr) auto;
+  align-items: end;
+}
+
+.availability-rows {
+  display: grid;
+  gap: 10px;
+}
+
 label {
   display: grid;
   gap: 7px;
@@ -429,6 +459,11 @@ textarea {
   background: var(--red-soft);
 }
 
+.mini-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .data-card strong {
   display: block;
 }
@@ -519,8 +554,7 @@ textarea {
   }
 
   .two-col,
-  .report-grid,
-  .metric-grid {
+  .report-grid {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -534,9 +568,10 @@ textarea {
   .topbar-actions,
   .two-col,
   .report-grid,
-  .metric-grid,
   .form-grid,
-  .nav {
+  .nav,
+  .availability-head,
+  .availability-row {
     grid-template-columns: 1fr;
     flex-direction: column;
   }

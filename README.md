@@ -18,7 +18,7 @@ Kebutuhan dashboard operasional yang mudah digunakan dicatat di
 
 ## Fitur backend
 
-- Manajemen cabang, orang tua, murid, guru, dan jadwal.
+- Manajemen cabang, mata pelajaran, orang tua, murid, guru, dan jadwal.
 - Validasi jadwal agar guru dan murid tidak bentrok.
 - Generator kandidat jadwal yang perlu dikonfirmasi admin sebelum disimpan.
 - Knowledge base chatbot Rumah Privat Madani dalam format JSON terstruktur.
@@ -40,7 +40,7 @@ Halaman ini wajib login karena menampilkan dan mengubah data operasional. Jika b
 /client/login?next=/
 ```
 
-Dashboard admin mencakup manajemen cabang, orang tua, murid, guru, jadwal manual, dan generator jadwal otomatis. Data operasional memakai `branch_id`, bukan teks kota bebas. Cabang menyimpan nama, alamat, dan kota/kabupaten, misalnya:
+Dashboard admin mencakup manajemen cabang, mata pelajaran, orang tua, murid, guru, jadwal manual, dan generator jadwal otomatis. Data operasional memakai `branch_id`, bukan teks kota bebas. Cabang menyimpan nama, alamat, dan kota/kabupaten, misalnya:
 
 - Cabang Jalan Kenangan, Kota Tasikmalaya.
 - Cabang Jalan Delima, Kabupaten Tasik.

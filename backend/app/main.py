@@ -246,6 +246,8 @@ class LesRequestHandler(BaseHTTPRequestHandler):
                 )
             elif api_path == "/api/branches":
                 self.send_json(self.store.create_branch(data), HTTPStatus.CREATED)
+            elif api_path == "/api/subjects":
+                self.send_json(self.store.create_subject(data), HTTPStatus.CREATED)
             elif api_path == "/api/parents":
                 self.send_json(self.store.create_parent(data), HTTPStatus.CREATED)
             elif api_path == "/api/students":
@@ -285,6 +287,8 @@ class LesRequestHandler(BaseHTTPRequestHandler):
             resource, item_id = self.parse_resource_id(api_path)
             if resource == "branches":
                 self.send_json(self.store.update_branch(item_id, data))
+            elif resource == "subjects":
+                self.send_json(self.store.update_subject(item_id, data))
             elif resource == "parents":
                 self.send_json(self.store.update_parent(item_id, data))
             elif resource == "students":
@@ -308,6 +312,8 @@ class LesRequestHandler(BaseHTTPRequestHandler):
             resource, item_id = self.parse_resource_id(api_path)
             if resource == "branches":
                 self.send_json(self.store.archive_branch(item_id))
+            elif resource == "subjects":
+                self.send_json(self.store.archive_subject(item_id))
             elif resource == "parents":
                 self.send_json(self.store.archive_parent(item_id))
             elif resource == "students":

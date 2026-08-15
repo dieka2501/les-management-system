@@ -19,6 +19,7 @@
         <nav class="nav">
           <a href="#beranda" data-view-link="beranda">🏠 Beranda</a>
           <a href="#cabang" data-view-link="cabang">🏢 Cabang</a>
+          <a href="#mata-pelajaran" data-view-link="mata-pelajaran">📚 Mata Pelajaran</a>
           <a href="#orang-tua" data-view-link="orang-tua">👨‍👩‍👧 Orang Tua</a>
           <a href="#murid" data-view-link="murid">🎒 Murid</a>
           <a href="#guru" data-view-link="guru">👩‍🏫 Guru</a>
@@ -60,6 +61,10 @@
             <article class="metric-card">
               <span>Guru aktif</span>
               <strong id="metricTutors">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>Mata pelajaran</span>
+              <strong id="metricSubjects">0</strong>
             </article>
             <article class="metric-card">
               <span>Jadwal aktif</span>
@@ -154,6 +159,34 @@
           <div class="panel">
             <h2>Daftar cabang</h2>
             <div id="branchList" class="card-list"></div>
+          </div>
+        </section>
+
+        <section id="mata-pelajaran" class="section two-col">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Tambah Mata Pelajaran</h2>
+                <p>Data ini dipilih di form murid, guru, jadwal, dan generator jadwal.</p>
+              </div>
+            </div>
+            <form id="subjectForm" class="form-grid">
+              <label>
+                Nama mata pelajaran
+                <input name="name" required placeholder="Contoh: Fisika" />
+              </label>
+              <label class="span-2">
+                Deskripsi mata pelajaran
+                <textarea name="description" rows="3" placeholder="Contoh: Pendampingan materi Fisika SMP dan SMA."></textarea>
+              </label>
+              <button class="btn" type="submit" id="subjectSubmitButton">Simpan mata pelajaran</button>
+              <button class="btn secondary" type="button" id="subjectCancelEdit" hidden>Batal edit</button>
+            </form>
+          </div>
+
+          <div class="panel">
+            <h2>Daftar mata pelajaran</h2>
+            <div id="subjectList" class="card-list"></div>
           </div>
         </section>
 
@@ -258,7 +291,7 @@
             <div class="panel-head">
               <div>
                 <h2>Tambah Guru</h2>
-                <p>Mapel dan availability guru dipakai oleh generator jadwal.</p>
+                <p>Mapel dan hari tersedia guru dipakai oleh generator jadwal.</p>
               </div>
             </div>
             <form id="tutorForm" class="form-grid">
@@ -290,26 +323,13 @@
                 Mata pelajaran
                 <select name="subject_ids" id="tutorSubjectSelect" multiple required></select>
               </label>
-              <label>
-                Hari tersedia
-                <select name="availability_day">
-                  <option value="0">Senin</option>
-                  <option value="1">Selasa</option>
-                  <option value="2">Rabu</option>
-                  <option value="3">Kamis</option>
-                  <option value="4">Jumat</option>
-                  <option value="5">Sabtu</option>
-                  <option value="6">Minggu</option>
-                </select>
-              </label>
-              <label>
-                Mulai tersedia
-                <input name="availability_start" type="time" value="15:00" required />
-              </label>
-              <label>
-                Selesai tersedia
-                <input name="availability_end" type="time" value="19:00" required />
-              </label>
+              <div class="span-2 availability-editor">
+                <div class="availability-head">
+                  <strong>Hari & jam tersedia</strong>
+                  <button class="mini-btn" id="addAvailabilityButton" type="button">Tambah hari</button>
+                </div>
+                <div class="availability-rows" id="availabilityRows"></div>
+              </div>
               <label class="span-2">
                 Catatan internal
                 <textarea name="notes" rows="3"></textarea>

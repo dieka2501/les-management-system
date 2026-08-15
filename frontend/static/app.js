@@ -15,6 +15,11 @@ const pageConfig = {
     title: "Cabang",
     description: "Kelola cabang sebagai area kerja untuk orang tua, murid, guru, dan jadwal.",
   },
+  "mata-pelajaran": {
+    eyebrow: "Data Master",
+    title: "Mata Pelajaran",
+    description: "Kelola mata pelajaran yang dipilih murid, guru, jadwal, dan generator jadwal.",
+  },
   "orang-tua": {
     eyebrow: "Data Kontak",
     title: "Orang Tua",
@@ -42,6 +47,16 @@ const pageConfig = {
   },
 };
 
+const dayOptions = [
+  { value: 0, label: "Senin" },
+  { value: 1, label: "Selasa" },
+  { value: 2, label: "Rabu" },
+  { value: 3, label: "Kamis" },
+  { value: 4, label: "Jumat" },
+  { value: 5, label: "Sabtu" },
+  { value: 6, label: "Minggu" },
+];
+
 const resourceConfig = {
   branch: {
     path: "/api/branches",
@@ -51,6 +66,15 @@ const resourceConfig = {
     cancelId: "branchCancelEdit",
     createLabel: "Simpan cabang",
     updateLabel: "Update cabang",
+  },
+  subject: {
+    path: "/api/subjects",
+    collection: "subjects",
+    formId: "subjectForm",
+    submitId: "subjectSubmitButton",
+    cancelId: "subjectCancelEdit",
+    createLabel: "Simpan mata pelajaran",
+    updateLabel: "Update mata pelajaran",
   },
   parent: {
     path: "/api/parents",
@@ -94,6 +118,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindNavigation();
   bindForms();
   bindEditCancelButtons();
+  bindTutorAvailabilityEditor();
   document.addEventListener("click", handleActionClick);
   document.getElementById("refreshButton").addEventListener("click", loadDashboard);
   document.getElementById("dashboardLogoutButton").addEventListener("click", logoutDashboard);
@@ -191,6 +216,7 @@ async function loadDashboard() {
   renderReadiness();
   renderOptions();
   renderBranches();
+  renderSubjects();
   renderParents();
   renderStudents();
   renderTutors();
@@ -201,6 +227,11 @@ function bindForms() {
   document.getElementById("branchForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     await submitResource("branch", event.target, collectBranchForm(event.target));
+  });
+
+  document.getElementById("subjectForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await submitResource("subject", event.target, collectSubjectForm(event.target));
   });
 
   document.getElementById("parentForm").addEventListener("submit", async (event) => {
@@ -244,6 +275,20 @@ function bindForms() {
       showToast(error.message, true);
     }
   });
+}
+
+function bindTutorAvailabilityEditor() {
+  const rows = document.getElementById("availabilityRows");
+  document.getElementById("addAvailabilityButton").addEventListener("click", () => {
+    addTutorAvailabilityRow();
+  });
+  rows.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-action='remove-availability']");
+    if (!button) return;
+    button.closest(".availability-row")?.remove();
+    updateAvailabilityRemoveButtons();
+  });
+  resetTutorAvailabilityRows();
 }
 
 function bindEditCancelButtons() {
@@ -316,6 +361,7 @@ function startEdit(resource, id) {
   document.getElementById(config.cancelId).hidden = false;
 
   if (resource === "branch") fillBranchForm(form, item);
+  if (resource === "subject") fillSubjectForm(form, item);
   if (resource === "parent") fillParentForm(form, item);
   if (resource === "student") fillStudentForm(form, item);
   if (resource === "tutor") fillTutorForm(form, item);
@@ -328,6 +374,7 @@ function startEdit(resource, id) {
 function viewForResource(resource) {
   return {
     branch: "cabang",
+    subject: "mata-pelajaran",
     parent: "orang-tua",
     student: "murid",
     tutor: "guru",
@@ -339,6 +386,9 @@ function resetFormMode(form, config) {
   delete form.dataset.editId;
   document.getElementById(config.submitId).textContent = config.createLabel;
   document.getElementById(config.cancelId).hidden = true;
+  if (form.id === "tutorForm") {
+    resetTutorAvailabilityRows();
+  }
 }
 
 async function archiveResource(resource, id) {
@@ -375,6 +425,7 @@ function findItem(collection, id) {
 function labelFor(resource) {
   return {
     branch: "cabang",
+    subject: "mata pelajaran",
     parent: "orang tua",
     student: "murid",
     tutor: "guru",
@@ -383,6 +434,10 @@ function labelFor(resource) {
 }
 
 function collectBranchForm(form) {
+  return formToObject(form);
+}
+
+function collectSubjectForm(form) {
   return formToObject(form);
 }
 
@@ -404,16 +459,7 @@ function collectTutorForm(form) {
   const data = formToObject(form);
   data.branch_id = Number(data.branch_id);
   data.subject_ids = selectedValues(form.subject_ids).map(Number);
-  data.availabilities = [
-    {
-      day_of_week: Number(data.availability_day),
-      start_time: data.availability_start,
-      end_time: data.availability_end,
-    },
-  ];
-  delete data.availability_day;
-  delete data.availability_start;
-  delete data.availability_end;
+  data.availabilities = collectTutorAvailabilities();
   return data;
 }
 
@@ -429,6 +475,11 @@ function fillBranchForm(form, item) {
   setValue(form, "name", item.name);
   setValue(form, "city", item.city);
   setValue(form, "address", item.address);
+}
+
+function fillSubjectForm(form, item) {
+  setValue(form, "name", item.name);
+  setValue(form, "description", item.description);
 }
 
 function fillParentForm(form, item) {
@@ -458,13 +509,7 @@ function fillTutorForm(form, item) {
   setValue(form, "gender", item.gender);
   setMultipleValues(form.subject_ids, item.subject_ids || []);
   setValue(form, "notes", item.notes);
-
-  const availability = (item.availabilities || [])[0];
-  if (availability) {
-    setValue(form, "availability_day", availability.day_of_week);
-    setValue(form, "availability_start", availability.start_time);
-    setValue(form, "availability_end", availability.end_time);
-  }
+  setTutorAvailabilityRows(item.availabilities || []);
 }
 
 function fillScheduleForm(form, item) {
@@ -500,11 +545,68 @@ function selectedValues(select) {
   return Array.from(select.selectedOptions).map((option) => option.value);
 }
 
+function collectTutorAvailabilities() {
+  return Array.from(document.querySelectorAll("#availabilityRows .availability-row")).map((row) => ({
+    day_of_week: Number(row.querySelector("[data-availability-day]").value),
+    start_time: row.querySelector("[data-availability-start]").value,
+    end_time: row.querySelector("[data-availability-end]").value,
+  }));
+}
+
+function resetTutorAvailabilityRows() {
+  setTutorAvailabilityRows([{ day_of_week: 0, start_time: "15:00", end_time: "19:00" }]);
+}
+
+function setTutorAvailabilityRows(availabilities) {
+  const rows = document.getElementById("availabilityRows");
+  rows.innerHTML = "";
+  const items = availabilities.length
+    ? availabilities
+    : [{ day_of_week: 0, start_time: "15:00", end_time: "19:00" }];
+  items.forEach((availability) => addTutorAvailabilityRow(availability));
+  updateAvailabilityRemoveButtons();
+}
+
+function addTutorAvailabilityRow(availability = {}) {
+  const rows = document.getElementById("availabilityRows");
+  const row = document.createElement("div");
+  row.className = "availability-row";
+  const selectedDay = Number(availability.day_of_week ?? 0);
+  const daySelectHtml = dayOptions
+    .map((day) => `<option value="${day.value}" ${day.value === selectedDay ? "selected" : ""}>${day.label}</option>`)
+    .join("");
+  row.innerHTML = `
+    <label>
+      Hari
+      <select data-availability-day required>${daySelectHtml}</select>
+    </label>
+    <label>
+      Mulai
+      <input data-availability-start type="time" value="${escapeHtml(availability.start_time || "15:00")}" required />
+    </label>
+    <label>
+      Selesai
+      <input data-availability-end type="time" value="${escapeHtml(availability.end_time || "19:00")}" required />
+    </label>
+    <button class="mini-btn danger" type="button" data-action="remove-availability">Hapus</button>
+  `;
+  rows.append(row);
+  updateAvailabilityRemoveButtons();
+}
+
+function updateAvailabilityRemoveButtons() {
+  const buttons = document.querySelectorAll("#availabilityRows [data-action='remove-availability']");
+  buttons.forEach((button) => {
+    button.disabled = buttons.length <= 1;
+  });
+}
+
 function renderMetrics() {
   const summary = state.data.summary;
   document.getElementById("metricParents").textContent = summary.parents;
   document.getElementById("metricStudents").textContent = summary.students;
   document.getElementById("metricTutors").textContent = summary.tutors;
+  document.getElementById("metricSubjects").textContent = summary.subjects;
   document.getElementById("metricSchedules").textContent = summary.schedules;
   document.getElementById("metricBranches").textContent = summary.branches;
 }
@@ -513,6 +615,7 @@ function renderReadiness() {
   const summary = state.data.summary;
   const items = [
     { label: "Cabang", count: summary.branches, view: "cabang", empty: "Buat minimal 1 cabang." },
+    { label: "Mata pelajaran", count: summary.subjects, view: "mata-pelajaran", empty: "Tambahkan mata pelajaran." },
     { label: "Orang tua", count: summary.parents, view: "orang-tua", empty: "Catat kontak orang tua." },
     { label: "Murid", count: summary.students, view: "murid", empty: "Tambahkan murid aktif." },
     { label: "Guru", count: summary.tutors, view: "guru", empty: "Lengkapi data guru." },
@@ -597,6 +700,27 @@ function renderBranches() {
       </article>
     `).join("")
     : `<div class="empty-state">Belum ada data cabang.</div>`;
+}
+
+function renderSubjects() {
+  const list = document.getElementById("subjectList");
+  list.innerHTML = state.data.subjects.length
+    ? state.data.subjects.map((subject) => `
+      <article class="data-card">
+        <header>
+          <div>
+            <strong>${escapeHtml(subject.code)} • ${escapeHtml(subject.name)}</strong>
+            <p>${escapeHtml(subject.description || "Deskripsi belum diisi")}</p>
+          </div>
+          <span class="status">${escapeHtml(subject.status)}</span>
+        </header>
+        <div class="card-actions">
+          <button class="mini-btn" data-action="edit-subject" data-id="${subject.id}">Edit</button>
+          <button class="mini-btn danger" data-action="archive-subject" data-id="${subject.id}">Arsipkan</button>
+        </div>
+      </article>
+    `).join("")
+    : `<div class="empty-state">Belum ada data mata pelajaran.</div>`;
 }
 
 function renderParents() {
