@@ -20,8 +20,7 @@
           <a href="#beranda" data-view-link="beranda">🏠 Beranda</a>
           <a href="#cabang" data-view-link="cabang">🏢 Cabang</a>
           <a href="#mata-pelajaran" data-view-link="mata-pelajaran">📚 Mata Pelajaran</a>
-          <a href="#orang-tua" data-view-link="orang-tua">👨‍👩‍👧 Orang Tua</a>
-          <a href="#murid" data-view-link="murid">🎒 Murid</a>
+          <a href="#orang-tua-murid" data-view-link="orang-tua-murid">👨‍👩‍👧 Orang Tua & Murid</a>
           <a href="#guru" data-view-link="guru">👩‍🏫 Guru</a>
           <a href="#jadwal" data-view-link="jadwal">📅 Jadwal</a>
           <a href="#generator" data-view-link="generator">⚡ Generate Jadwal</a>
@@ -29,7 +28,7 @@
         </nav>
         <div class="sidebar-note">
           <strong>Alur admin</strong>
-          <p>Mulai dari data cabang, orang tua, murid, guru, jadwal, lalu latih chatbot dari menu Chatbot.</p>
+          <p>Mulai dari data cabang, keluarga murid, guru, jadwal, lalu latih chatbot dari menu Chatbot.</p>
         </div>
       </aside>
 
@@ -190,99 +189,95 @@
           </div>
         </section>
 
-        <section id="orang-tua" class="section two-col">
+        <section id="orang-tua-murid" class="section page-stack">
+          <div class="two-col">
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Tambah Orang Tua</h2>
+                  <p>Data ini menjadi kontak utama dan alamat billing keluarga.</p>
+                </div>
+              </div>
+              <form id="parentForm" class="form-grid">
+                <label>
+                  Cabang
+                  <select name="branch_id" id="parentBranchSelect" required></select>
+                </label>
+                <label>
+                  Nama lengkap
+                  <input name="full_name" required placeholder="Contoh: Ibu Rina Kusuma" />
+                </label>
+                <label>
+                  No. telepon/WhatsApp
+                  <input name="phone" required placeholder="0812xxxx" />
+                </label>
+                <label>
+                  Email
+                  <input name="email" type="email" placeholder="nama@email.com" />
+                </label>
+                <label>
+                  Alamat rumah
+                  <input name="address" placeholder="Alamat lengkap" />
+                </label>
+                <button class="btn" type="submit" id="parentSubmitButton">Simpan orang tua</button>
+                <button class="btn secondary" type="button" id="parentCancelEdit" hidden>Batal edit</button>
+              </form>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Tambah Murid</h2>
+                  <p>Pilih orang tua pemilik data murid. Satu orang tua bisa punya beberapa murid.</p>
+                </div>
+              </div>
+              <form id="studentForm" class="form-grid">
+                <label>
+                  Orang tua
+                  <select name="parent_id" id="studentParentSelect" required></select>
+                </label>
+                <label>
+                  Nama murid
+                  <input name="full_name" required placeholder="Contoh: Raka Putra" />
+                </label>
+                <label>
+                  Tempat lahir
+                  <input name="birthplace" placeholder="Bandung" />
+                </label>
+                <label>
+                  Tanggal lahir
+                  <input name="birthdate" type="date" />
+                </label>
+                <label>
+                  Jenis kelamin
+                  <select name="gender">
+                    <option value="">Pilih</option>
+                    <option>Laki-laki</option>
+                    <option>Perempuan</option>
+                  </select>
+                </label>
+                <label>
+                  Mata pelajaran
+                  <select name="subject_ids" id="studentSubjectSelect" multiple required></select>
+                </label>
+                <label class="span-2">
+                  Catatan kebutuhan belajar
+                  <textarea name="notes" rows="3" placeholder="Contoh: butuh jadwal sore, fokus matematika dasar"></textarea>
+                </label>
+                <button class="btn" type="submit" id="studentSubmitButton">Simpan murid</button>
+                <button class="btn secondary" type="button" id="studentCancelEdit" hidden>Batal edit</button>
+              </form>
+            </div>
+          </div>
+
           <div class="panel">
             <div class="panel-head">
               <div>
-                <h2>Tambah Orang Tua</h2>
-                <p>Data ini menjadi kontak utama dan alamat billing.</p>
+                <h2>Daftar keluarga & murid</h2>
+                <p>Setiap kartu mewakili satu orang tua, dengan daftar anak/murid di bawahnya.</p>
               </div>
             </div>
-            <form id="parentForm" class="form-grid">
-              <label>
-                Cabang
-                <select name="branch_id" id="parentBranchSelect" required></select>
-              </label>
-              <label>
-                Nama lengkap
-                <input name="full_name" required placeholder="Contoh: Ibu Rina Kusuma" />
-              </label>
-              <label>
-                No. telepon/WhatsApp
-                <input name="phone" required placeholder="0812xxxx" />
-              </label>
-              <label>
-                Email
-                <input name="email" type="email" placeholder="nama@email.com" />
-              </label>
-              <label>
-                Alamat rumah
-                <input name="address" placeholder="Alamat lengkap" />
-              </label>
-              <button class="btn" type="submit" id="parentSubmitButton">Simpan orang tua</button>
-              <button class="btn secondary" type="button" id="parentCancelEdit" hidden>Batal edit</button>
-            </form>
-          </div>
-
-          <div class="panel">
-            <h2>Daftar orang tua</h2>
-            <div id="parentList" class="card-list"></div>
-          </div>
-        </section>
-
-        <section id="murid" class="section two-col">
-          <div class="panel">
-            <div class="panel-head">
-              <div>
-                <h2>Tambah Murid</h2>
-                <p>Satu murid bisa mengambil beberapa mata pelajaran.</p>
-              </div>
-            </div>
-            <form id="studentForm" class="form-grid">
-              <label>
-                Cabang
-                <select name="branch_id" id="studentBranchSelect" required></select>
-              </label>
-              <label>
-                Orang tua
-                <select name="parent_id" id="studentParentSelect" required></select>
-              </label>
-              <label>
-                Nama murid
-                <input name="full_name" required placeholder="Contoh: Raka Putra" />
-              </label>
-              <label>
-                Tempat lahir
-                <input name="birthplace" placeholder="Bandung" />
-              </label>
-              <label>
-                Tanggal lahir
-                <input name="birthdate" type="date" />
-              </label>
-              <label>
-                Jenis kelamin
-                <select name="gender">
-                  <option value="">Pilih</option>
-                  <option>Laki-laki</option>
-                  <option>Perempuan</option>
-                </select>
-              </label>
-              <label>
-                Mata pelajaran
-                <select name="subject_ids" id="studentSubjectSelect" multiple required></select>
-              </label>
-              <label class="span-2">
-                Catatan kebutuhan belajar
-                <textarea name="notes" rows="3" placeholder="Contoh: butuh jadwal sore, fokus matematika dasar"></textarea>
-              </label>
-              <button class="btn" type="submit" id="studentSubmitButton">Simpan murid</button>
-              <button class="btn secondary" type="button" id="studentCancelEdit" hidden>Batal edit</button>
-            </form>
-          </div>
-
-          <div class="panel">
-            <h2>Daftar murid</h2>
-            <div id="studentList" class="card-list"></div>
+            <div id="familyList" class="card-list"></div>
           </div>
         </section>
 

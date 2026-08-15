@@ -442,6 +442,45 @@ textarea {
   margin-top: 12px;
 }
 
+.family-card {
+  display: grid;
+  gap: 14px;
+}
+
+.child-list {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.child-list-head,
+.child-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.child-list-head span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.child-item {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.child-actions {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  margin-top: 0;
+}
+
 .mini-btn {
   min-height: 34px;
   padding: 7px 11px;
@@ -513,6 +552,11 @@ textarea {
   color: var(--muted);
   background: #f8fafc;
   text-align: center;
+}
+
+.empty-state.compact {
+  padding: 12px;
+  font-size: 13px;
 }
 
 .toast {
@@ -592,5 +636,14 @@ textarea {
   .readiness-item {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .child-list-head,
+  .child-item {
+    flex-direction: column;
+  }
+
+  .child-actions {
+    justify-content: flex-start;
   }
 }

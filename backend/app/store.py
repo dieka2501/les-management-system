@@ -704,10 +704,13 @@ class LesStore:
         self.get_student(student_id)
         with self.connection() as conn:
             branch_id = None
+            parent = None
             if "parent_id" in data:
-                self.ensure_parent_exists(coerce_int(data["parent_id"], "Orang tua"), conn)
+                parent = self.ensure_parent_exists(coerce_int(data["parent_id"], "Orang tua"), conn)
             if str(data.get("branch_id", "")).strip():
                 branch_id = self.branch_id_from_data(data, conn)
+            elif parent is not None:
+                branch_id = int(parent["branch_id"])
             conn.execute(
                 """
                 UPDATE students

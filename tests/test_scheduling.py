@@ -51,6 +51,26 @@ class SchedulingTestCase(unittest.TestCase):
     def tearDown(self) -> None:
         self.tmpdir.cleanup()
 
+    def test_student_branch_follows_parent_when_parent_changes(self) -> None:
+        bandung_branch_id = self.store.branch_by_code("CBG-0003")["id"]
+        other_parent = self.store.create_parent(
+            {
+                "branch_id": bandung_branch_id,
+                "full_name": "Bapak Cabang Bandung",
+                "phone": "080000000009",
+            }
+        )
+
+        updated = self.store.update_student(
+            self.student["id"],
+            {
+                "parent_id": other_parent["id"],
+            },
+        )
+
+        self.assertEqual(other_parent["id"], updated["parent_id"])
+        self.assertEqual(bandung_branch_id, updated["branch_id"])
+
     def test_manual_schedule_rejects_tutor_overlap(self) -> None:
         self.store.create_schedule(
             {

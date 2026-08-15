@@ -20,15 +20,10 @@ const pageConfig = {
     title: "Mata Pelajaran",
     description: "Kelola mata pelajaran yang dipilih murid, guru, jadwal, dan generator jadwal.",
   },
-  "orang-tua": {
-    eyebrow: "Data Kontak",
-    title: "Orang Tua",
-    description: "Kelola kontak utama, alamat, dan data billing orang tua murid.",
-  },
-  murid: {
-    eyebrow: "Data Peserta",
-    title: "Murid",
-    description: "Kelola data peserta didik, relasi orang tua, dan mata pelajaran yang diambil.",
+  "orang-tua-murid": {
+    eyebrow: "Data Keluarga",
+    title: "Orang Tua & Murid",
+    description: "Kelola satu orang tua dengan beberapa anak/murid dalam satu halaman.",
   },
   guru: {
     eyebrow: "Data Pengajar",
@@ -45,6 +40,11 @@ const pageConfig = {
     title: "Generate Jadwal",
     description: "Cari kandidat jadwal yang aman, lalu konfirmasi sebelum disimpan.",
   },
+};
+
+const viewAliases = {
+  "orang-tua": "orang-tua-murid",
+  murid: "orang-tua-murid",
 };
 
 const dayOptions = [
@@ -131,7 +131,7 @@ function bindNavigation() {
     const link = event.target.closest("[data-view-link]");
     if (!link) return;
 
-    const view = link.dataset.viewLink;
+    const view = normalizeView(link.dataset.viewLink);
     if (!pageConfig[view]) return;
 
     event.preventDefault();
@@ -145,11 +145,11 @@ function bindNavigation() {
 
 function viewFromHash() {
   const view = window.location.hash.replace("#", "");
-  return pageConfig[view] ? view : "beranda";
+  return normalizeView(view);
 }
 
 function showView(view, options = {}) {
-  const nextView = pageConfig[view] ? view : "beranda";
+  const nextView = normalizeView(view);
   const config = pageConfig[nextView];
   state.activeView = nextView;
 
@@ -185,6 +185,11 @@ function showView(view, options = {}) {
   }
 }
 
+function normalizeView(view) {
+  const normalized = viewAliases[view] || view;
+  return pageConfig[normalized] ? normalized : "beranda";
+}
+
 async function api(path, options = {}) {
   const response = await fetch(path, {
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
@@ -217,8 +222,7 @@ async function loadDashboard() {
   renderOptions();
   renderBranches();
   renderSubjects();
-  renderParents();
-  renderStudents();
+  renderFamilies();
   renderTutors();
   renderSchedules();
 }
@@ -375,8 +379,8 @@ function viewForResource(resource) {
   return {
     branch: "cabang",
     subject: "mata-pelajaran",
-    parent: "orang-tua",
-    student: "murid",
+    parent: "orang-tua-murid",
+    student: "orang-tua-murid",
     tutor: "guru",
     schedule: "jadwal",
   }[resource] || "beranda";
@@ -449,7 +453,11 @@ function collectParentForm(form) {
 
 function collectStudentForm(form) {
   const data = formToObject(form);
-  data.branch_id = Number(data.branch_id);
+  if (data.branch_id) {
+    data.branch_id = Number(data.branch_id);
+  } else {
+    delete data.branch_id;
+  }
   data.parent_id = Number(data.parent_id);
   data.subject_ids = selectedValues(form.subject_ids).map(Number);
   return data;
@@ -616,8 +624,8 @@ function renderReadiness() {
   const items = [
     { label: "Cabang", count: summary.branches, view: "cabang", empty: "Buat minimal 1 cabang." },
     { label: "Mata pelajaran", count: summary.subjects, view: "mata-pelajaran", empty: "Tambahkan mata pelajaran." },
-    { label: "Orang tua", count: summary.parents, view: "orang-tua", empty: "Catat kontak orang tua." },
-    { label: "Murid", count: summary.students, view: "murid", empty: "Tambahkan murid aktif." },
+    { label: "Orang tua", count: summary.parents, view: "orang-tua-murid", empty: "Catat kontak orang tua." },
+    { label: "Murid", count: summary.students, view: "orang-tua-murid", empty: "Tambahkan murid aktif." },
     { label: "Guru", count: summary.tutors, view: "guru", empty: "Lengkapi data guru." },
     { label: "Jadwal", count: summary.schedules, view: "jadwal", empty: "Buat jadwal belajar." },
   ];
@@ -723,11 +731,20 @@ function renderSubjects() {
     : `<div class="empty-state">Belum ada data mata pelajaran.</div>`;
 }
 
-function renderParents() {
-  const list = document.getElementById("parentList");
-  list.innerHTML = state.data.parents.length
-    ? state.data.parents.map((parent) => `
-      <article class="data-card">
+function renderFamilies() {
+  const list = document.getElementById("familyList");
+  const parents = state.data.parents || [];
+  const students = state.data.students || [];
+
+  if (!parents.length) {
+    list.innerHTML = `<div class="empty-state">Belum ada data keluarga. Tambahkan orang tua dulu, lalu masukkan data murid.</div>`;
+    return;
+  }
+
+  list.innerHTML = parents.map((parent) => {
+    const children = students.filter((student) => Number(student.parent_id) === Number(parent.id));
+    return `
+      <article class="data-card family-card">
         <header>
           <div>
             <strong>${escapeHtml(parent.code)} • ${escapeHtml(parent.full_name)}</strong>
@@ -735,38 +752,42 @@ function renderParents() {
             <p>Cabang: ${escapeHtml(parent.branch_name)} • ${escapeHtml(parent.branch_city)}</p>
             <p>${escapeHtml(parent.address || "Alamat belum diisi")}</p>
           </div>
-          <span class="status">${parent.student_count} anak</span>
+          <span class="status">${children.length} anak</span>
         </header>
         <div class="card-actions">
-          <button class="mini-btn" data-action="edit-parent" data-id="${parent.id}">Edit</button>
+          <button class="mini-btn" data-action="edit-parent" data-id="${parent.id}">Edit orang tua</button>
           <button class="mini-btn danger" data-action="archive-parent" data-id="${parent.id}">Arsipkan</button>
         </div>
-      </article>
-    `).join("")
-    : `<div class="empty-state">Belum ada data orang tua.</div>`;
-}
-
-function renderStudents() {
-  const list = document.getElementById("studentList");
-  list.innerHTML = state.data.students.length
-    ? state.data.students.map((student) => `
-      <article class="data-card">
-        <header>
-          <div>
-            <strong>${escapeHtml(student.code)} • ${escapeHtml(student.full_name)}</strong>
-            <p>Orang tua: ${escapeHtml(student.parent_name)}</p>
-            <p>Cabang: ${escapeHtml(student.branch_name)} • ${escapeHtml(student.branch_city)}</p>
-            <p>Mapel: ${escapeHtml(student.subjects || "Belum dipilih")}</p>
+        <div class="child-list">
+          <div class="child-list-head">
+            <strong>Anak/murid</strong>
+            <span>${children.length ? `${children.length} data murid aktif` : "Belum ada murid"}</span>
           </div>
-          <span class="status">${escapeHtml(student.status)}</span>
-        </header>
-        <div class="card-actions">
-          <button class="mini-btn" data-action="edit-student" data-id="${student.id}">Edit</button>
-          <button class="mini-btn danger" data-action="archive-student" data-id="${student.id}">Arsipkan</button>
+          ${
+            children.length
+              ? children.map(renderFamilyStudent).join("")
+              : `<div class="empty-state compact">Belum ada murid untuk orang tua ini.</div>`
+          }
         </div>
       </article>
-    `).join("")
-    : `<div class="empty-state">Belum ada data murid.</div>`;
+    `;
+  }).join("");
+}
+
+function renderFamilyStudent(student) {
+  return `
+    <article class="child-item">
+      <div>
+        <strong>${escapeHtml(student.code)} • ${escapeHtml(student.full_name)}</strong>
+        <p>Mapel: ${escapeHtml(student.subjects || "Belum dipilih")}</p>
+        <p>Cabang: ${escapeHtml(student.branch_name)} • ${escapeHtml(student.branch_city)}</p>
+      </div>
+      <div class="card-actions child-actions">
+        <button class="mini-btn" data-action="edit-student" data-id="${student.id}">Edit murid</button>
+        <button class="mini-btn danger" data-action="archive-student" data-id="${student.id}">Arsipkan</button>
+      </div>
+    </article>
+  `;
 }
 
 function renderTutors() {
