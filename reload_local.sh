@@ -94,14 +94,14 @@ start_server() {
   echo "PID: $pid"
   echo "Log: $LOG_FILE"
   echo "Client dashboard: http://$HOST:$PORT/"
-  echo "Provider simulation: http://$HOST:$PORT/provider/chat-simulations"
+  echo "Admin chatbot: http://$HOST:$PORT/client/chatbot"
 }
 
 foreground_server() {
   stop_server
   echo "Starting Les Management System in foreground on http://$HOST:$PORT ..."
   echo "Client dashboard: http://$HOST:$PORT/"
-  echo "Provider simulation: http://$HOST:$PORT/provider/chat-simulations"
+  echo "Admin chatbot: http://$HOST:$PORT/client/chatbot"
   echo "Press Ctrl+C to stop."
   PORT="$PORT" HOST="$HOST" exec "$PYTHON" -m backend.app.main
 }
@@ -111,7 +111,7 @@ status_server() {
     echo "Server is running."
     echo "PID: $(cat "$PID_FILE")"
     echo "Client dashboard: http://$HOST:$PORT/"
-    echo "Provider simulation: http://$HOST:$PORT/provider/chat-simulations"
+    echo "Admin chatbot: http://$HOST:$PORT/client/chatbot"
     exit 0
   fi
 

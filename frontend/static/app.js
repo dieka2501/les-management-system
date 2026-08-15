@@ -1,6 +1,45 @@
 const state = {
   data: null,
   lastCandidates: [],
+  activeView: "beranda",
+};
+
+const pageConfig = {
+  beranda: {
+    eyebrow: "Report Operasional",
+    title: "Dashboard Operasional Les",
+    description: "Ringkasan kondisi data les, kesiapan operasional, dan jadwal aktif.",
+  },
+  cabang: {
+    eyebrow: "Data Master",
+    title: "Cabang",
+    description: "Kelola cabang sebagai area kerja untuk orang tua, murid, guru, dan jadwal.",
+  },
+  "orang-tua": {
+    eyebrow: "Data Kontak",
+    title: "Orang Tua",
+    description: "Kelola kontak utama, alamat, dan data billing orang tua murid.",
+  },
+  murid: {
+    eyebrow: "Data Peserta",
+    title: "Murid",
+    description: "Kelola data peserta didik, relasi orang tua, dan mata pelajaran yang diambil.",
+  },
+  guru: {
+    eyebrow: "Data Pengajar",
+    title: "Guru",
+    description: "Kelola guru, mata pelajaran yang diajar, dan jam tersedia untuk penjadwalan.",
+  },
+  jadwal: {
+    eyebrow: "Operasional Belajar",
+    title: "Jadwal",
+    description: "Buat, edit, dan batalkan jadwal yang sudah lolos validasi bentrok.",
+  },
+  generator: {
+    eyebrow: "Penjadwalan Otomatis",
+    title: "Generate Jadwal",
+    description: "Cari kandidat jadwal yang aman, lalu konfirmasi sebelum disimpan.",
+  },
 };
 
 const resourceConfig = {
@@ -52,13 +91,74 @@ const resourceConfig = {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
+  bindNavigation();
   bindForms();
   bindEditCancelButtons();
   document.addEventListener("click", handleActionClick);
   document.getElementById("refreshButton").addEventListener("click", loadDashboard);
   document.getElementById("dashboardLogoutButton").addEventListener("click", logoutDashboard);
+  showView(viewFromHash(), { replace: true, scroll: false });
   loadDashboard();
 });
+
+function bindNavigation() {
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest("[data-view-link]");
+    if (!link) return;
+
+    const view = link.dataset.viewLink;
+    if (!pageConfig[view]) return;
+
+    event.preventDefault();
+    showView(view);
+  });
+
+  window.addEventListener("popstate", () => {
+    showView(viewFromHash(), { updateHistory: false });
+  });
+}
+
+function viewFromHash() {
+  const view = window.location.hash.replace("#", "");
+  return pageConfig[view] ? view : "beranda";
+}
+
+function showView(view, options = {}) {
+  const nextView = pageConfig[view] ? view : "beranda";
+  const config = pageConfig[nextView];
+  state.activeView = nextView;
+
+  document.querySelectorAll(".section").forEach((section) => {
+    section.classList.toggle("active-section", section.id === nextView);
+  });
+
+  document.querySelectorAll(".nav [data-view-link]").forEach((link) => {
+    const active = link.dataset.viewLink === nextView;
+    link.classList.toggle("active", active);
+    if (active) {
+      link.setAttribute("aria-current", "page");
+    } else {
+      link.removeAttribute("aria-current");
+    }
+  });
+
+  document.getElementById("pageEyebrow").textContent = config.eyebrow;
+  document.getElementById("pageTitle").textContent = config.title;
+  document.getElementById("pageDescription").textContent = config.description;
+  document.title = `${config.title} - Les Belajar`;
+
+  if (options.updateHistory !== false) {
+    const nextUrl = `${window.location.pathname}${window.location.search}#${nextView}`;
+    const method = options.replace ? "replaceState" : "pushState";
+    if (window.location.hash !== `#${nextView}` || options.replace) {
+      window.history[method]({}, "", nextUrl);
+    }
+  }
+
+  if (options.scroll !== false) {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+}
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -88,6 +188,7 @@ async function logoutDashboard() {
 async function loadDashboard() {
   state.data = await api("/api/dashboard-data");
   renderMetrics();
+  renderReadiness();
   renderOptions();
   renderBranches();
   renderParents();
@@ -207,6 +308,8 @@ function startEdit(resource, id) {
     return;
   }
 
+  showView(viewForResource(resource), { scroll: false });
+
   const form = document.getElementById(config.formId);
   form.dataset.editId = String(id);
   document.getElementById(config.submitId).textContent = config.updateLabel;
@@ -220,6 +323,16 @@ function startEdit(resource, id) {
 
   form.scrollIntoView({ behavior: "smooth", block: "center" });
   showToast(`Mode edit aktif untuk ${labelFor(resource)} ${item.code || ""}`.trim());
+}
+
+function viewForResource(resource) {
+  return {
+    branch: "cabang",
+    parent: "orang-tua",
+    student: "murid",
+    tutor: "guru",
+    schedule: "jadwal",
+  }[resource] || "beranda";
 }
 
 function resetFormMode(form, config) {
@@ -396,6 +509,35 @@ function renderMetrics() {
   document.getElementById("metricBranches").textContent = summary.branches;
 }
 
+function renderReadiness() {
+  const summary = state.data.summary;
+  const items = [
+    { label: "Cabang", count: summary.branches, view: "cabang", empty: "Buat minimal 1 cabang." },
+    { label: "Orang tua", count: summary.parents, view: "orang-tua", empty: "Catat kontak orang tua." },
+    { label: "Murid", count: summary.students, view: "murid", empty: "Tambahkan murid aktif." },
+    { label: "Guru", count: summary.tutors, view: "guru", empty: "Lengkapi data guru." },
+    { label: "Jadwal", count: summary.schedules, view: "jadwal", empty: "Buat jadwal belajar." },
+  ];
+
+  const list = document.getElementById("readinessList");
+  list.innerHTML = items
+    .map((item) => {
+      const ready = Number(item.count) > 0;
+      return `
+        <article class="readiness-item">
+          <div>
+            <strong>${escapeHtml(item.label)}</strong>
+            <span>${ready ? `${Number(item.count)} data aktif` : item.empty}</span>
+          </div>
+          <a class="mini-btn ${ready ? "" : "danger"}" href="#${item.view}" data-view-link="${item.view}">
+            ${ready ? "Buka" : "Lengkapi"}
+          </a>
+        </article>
+      `;
+    })
+    .join("");
+}
+
 function renderOptions() {
   const branchOptions = state.data.branches
     .map((branch) => `<option value="${branch.id}">${escapeHtml(branch.name)} • ${escapeHtml(branch.city)}</option>`)
@@ -533,8 +675,14 @@ function renderTutors() {
 
 function renderSchedules() {
   const list = document.getElementById("scheduleList");
-  list.innerHTML = state.data.schedules.length
-    ? state.data.schedules.map((schedule) => `
+  const reportList = document.getElementById("reportScheduleList");
+  list.innerHTML = scheduleCardsHtml(state.data.schedules, "Belum ada jadwal aktif.");
+  reportList.innerHTML = scheduleCardsHtml(state.data.schedules.slice(0, 5), "Belum ada jadwal aktif.");
+}
+
+function scheduleCardsHtml(schedules, emptyMessage) {
+  return schedules.length
+    ? schedules.map((schedule) => `
       <article class="data-card">
         <header>
           <div>
@@ -551,7 +699,7 @@ function renderSchedules() {
         </div>
       </article>
     `).join("")
-    : `<div class="empty-state">Belum ada jadwal aktif.</div>`;
+    : `<div class="empty-state">${escapeHtml(emptyMessage)}</div>`;
 }
 
 function renderCandidates(message = "") {

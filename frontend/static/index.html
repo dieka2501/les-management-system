@@ -17,13 +17,13 @@
           </div>
         </div>
         <nav class="nav">
-          <a href="#beranda">🏠 Beranda</a>
-          <a href="#cabang">🏢 Cabang</a>
-          <a href="#orang-tua">👨‍👩‍👧 Orang Tua</a>
-          <a href="#murid">🎒 Murid</a>
-          <a href="#guru">👩‍🏫 Guru</a>
-          <a href="#jadwal">📅 Jadwal</a>
-          <a href="#generator">⚡ Generate Jadwal</a>
+          <a href="#beranda" data-view-link="beranda">🏠 Beranda</a>
+          <a href="#cabang" data-view-link="cabang">🏢 Cabang</a>
+          <a href="#orang-tua" data-view-link="orang-tua">👨‍👩‍👧 Orang Tua</a>
+          <a href="#murid" data-view-link="murid">🎒 Murid</a>
+          <a href="#guru" data-view-link="guru">👩‍🏫 Guru</a>
+          <a href="#jadwal" data-view-link="jadwal">📅 Jadwal</a>
+          <a href="#generator" data-view-link="generator">⚡ Generate Jadwal</a>
           <a href="/client/chatbot">🤖 Chatbot</a>
         </nav>
         <div class="sidebar-note">
@@ -35,9 +35,9 @@
       <main class="main">
         <header class="topbar">
           <div>
-            <span class="eyebrow">Aplikasi Admin Les</span>
-            <h1>Dashboard Operasional Les</h1>
-            <p>Kelola data les, pendaftaran, jadwal, dan chatbot dari satu area admin.</p>
+            <span class="eyebrow" id="pageEyebrow">Aplikasi Admin Les</span>
+            <h1 id="pageTitle">Dashboard Operasional Les</h1>
+            <p id="pageDescription">Kelola data les, pendaftaran, jadwal, dan chatbot dari satu area admin.</p>
           </div>
           <div class="topbar-actions">
             <button class="btn secondary" id="refreshButton">Refresh data</button>
@@ -71,35 +71,47 @@
             </article>
           </div>
 
-          <div class="panel flow-panel">
-            <div class="panel-head">
-              <div>
-                <h2>Alur kerja admin</h2>
-                <p>Ikuti urutan ini agar data operasional dan chatbot saling tersambung.</p>
+          <div class="report-grid">
+            <div class="panel flow-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Alur kerja admin</h2>
+                  <p>Ikuti urutan ini agar data operasional dan chatbot saling tersambung.</p>
+                </div>
               </div>
+              <ol class="flow-list">
+                <li>
+                  <strong>Setup cabang</strong>
+                  <span>Buat cabang sebagai area operasional data les.</span>
+                </li>
+                <li>
+                  <strong>Catat orang tua dan murid</strong>
+                  <span>Masukkan kontak orang tua, data murid, dan mata pelajaran yang dipilih.</span>
+                </li>
+                <li>
+                  <strong>Lengkapi guru</strong>
+                  <span>Isi mata pelajaran dan jam tersedia guru untuk validasi jadwal.</span>
+                </li>
+                <li>
+                  <strong>Atur jadwal</strong>
+                  <span>Buat manual atau pakai generator untuk mencari slot aman.</span>
+                </li>
+                <li>
+                  <strong>Latih chatbot</strong>
+                  <span>Koreksi jawaban di menu Chatbot agar WA dan Instagram menjawab lebih tepat.</span>
+                </li>
+              </ol>
             </div>
-            <ol class="flow-list">
-              <li>
-                <strong>Setup cabang</strong>
-                <span>Buat cabang sebagai area operasional data les.</span>
-              </li>
-              <li>
-                <strong>Catat orang tua dan murid</strong>
-                <span>Masukkan kontak orang tua, data murid, dan mata pelajaran yang dipilih.</span>
-              </li>
-              <li>
-                <strong>Lengkapi guru</strong>
-                <span>Isi mata pelajaran dan jam tersedia guru untuk validasi jadwal.</span>
-              </li>
-              <li>
-                <strong>Atur jadwal</strong>
-                <span>Buat manual atau pakai generator untuk mencari slot aman.</span>
-              </li>
-              <li>
-                <strong>Latih chatbot</strong>
-                <span>Koreksi jawaban di menu Chatbot agar WA dan Instagram menjawab lebih tepat.</span>
-              </li>
-            </ol>
+
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Kesiapan operasional</h2>
+                  <p>Status data inti sebelum jadwal dan chatbot dipakai penuh.</p>
+                </div>
+              </div>
+              <div id="readinessList" class="readiness-list"></div>
+            </div>
           </div>
 
           <div class="panel">
@@ -109,7 +121,7 @@
                 <p>Jadwal yang tampil di sini sudah melewati validasi anti-bentrok.</p>
               </div>
             </div>
-            <div id="scheduleList" class="card-list"></div>
+            <div id="reportScheduleList" class="card-list"></div>
           </div>
         </section>
 
@@ -313,77 +325,89 @@
           </div>
         </section>
 
-        <section id="jadwal" class="section two-col">
-          <div class="panel">
-            <div class="panel-head">
-              <div>
-                <h2>Buat Jadwal Manual</h2>
-                <p>Backend akan menolak jika guru/murid bentrok atau guru tidak available.</p>
+        <section id="jadwal" class="section page-stack">
+          <div class="two-col">
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Buat Jadwal Manual</h2>
+                  <p>Backend akan menolak jika guru/murid bentrok atau guru tidak available.</p>
+                </div>
               </div>
+              <form id="scheduleForm" class="form-grid">
+                <label>
+                  Cabang
+                  <select name="branch_id" id="scheduleBranchSelect" required></select>
+                </label>
+                <label>
+                  Murid
+                  <select name="student_id" id="scheduleStudentSelect" required></select>
+                </label>
+                <label>
+                  Guru
+                  <select name="tutor_id" id="scheduleTutorSelect" required></select>
+                </label>
+                <label>
+                  Mata pelajaran
+                  <select name="subject_id" id="scheduleSubjectSelect" required></select>
+                </label>
+                <label>
+                  Hari
+                  <select name="day_of_week">
+                    <option value="0">Senin</option>
+                    <option value="1">Selasa</option>
+                    <option value="2">Rabu</option>
+                    <option value="3">Kamis</option>
+                    <option value="4">Jumat</option>
+                    <option value="5">Sabtu</option>
+                    <option value="6">Minggu</option>
+                  </select>
+                </label>
+                <label>
+                  Jam mulai
+                  <input name="start_time" type="time" value="16:00" required />
+                </label>
+                <label>
+                  Jam selesai
+                  <input name="end_time" type="time" value="17:30" required />
+                </label>
+                <label>
+                  Mode
+                  <select name="mode">
+                    <option value="online">Online</option>
+                    <option value="rumah">Rumah murid</option>
+                    <option value="kelas">Kelas</option>
+                  </select>
+                </label>
+                <label>
+                  Lokasi
+                  <input name="location" placeholder="Opsional" />
+                </label>
+                <button class="btn" type="submit" id="scheduleSubmitButton">Simpan jadwal</button>
+                <button class="btn secondary" type="button" id="scheduleCancelEdit" hidden>Batal edit</button>
+              </form>
             </div>
-            <form id="scheduleForm" class="form-grid">
-              <label>
-                Cabang
-                <select name="branch_id" id="scheduleBranchSelect" required></select>
-              </label>
-              <label>
-                Murid
-                <select name="student_id" id="scheduleStudentSelect" required></select>
-              </label>
-              <label>
-                Guru
-                <select name="tutor_id" id="scheduleTutorSelect" required></select>
-              </label>
-              <label>
-                Mata pelajaran
-                <select name="subject_id" id="scheduleSubjectSelect" required></select>
-              </label>
-              <label>
-                Hari
-                <select name="day_of_week">
-                  <option value="0">Senin</option>
-                  <option value="1">Selasa</option>
-                  <option value="2">Rabu</option>
-                  <option value="3">Kamis</option>
-                  <option value="4">Jumat</option>
-                  <option value="5">Sabtu</option>
-                  <option value="6">Minggu</option>
-                </select>
-              </label>
-              <label>
-                Jam mulai
-                <input name="start_time" type="time" value="16:00" required />
-              </label>
-              <label>
-                Jam selesai
-                <input name="end_time" type="time" value="17:30" required />
-              </label>
-              <label>
-                Mode
-                <select name="mode">
-                  <option value="online">Online</option>
-                  <option value="rumah">Rumah murid</option>
-                  <option value="kelas">Kelas</option>
-                </select>
-              </label>
-              <label>
-                Lokasi
-                <input name="location" placeholder="Opsional" />
-              </label>
-              <button class="btn" type="submit" id="scheduleSubmitButton">Simpan jadwal</button>
-              <button class="btn secondary" type="button" id="scheduleCancelEdit" hidden>Batal edit</button>
-            </form>
+
+            <div class="panel">
+              <h2>Aturan validasi</h2>
+              <ul class="check-list">
+                <li>Guru harus mengajar mapel yang dipilih.</li>
+                <li>Murid harus mengambil mapel tersebut.</li>
+                <li>Slot wajib masuk availability guru.</li>
+                <li>Guru tidak boleh punya jadwal aktif yang tumpang tindih.</li>
+                <li>Murid tidak boleh punya jadwal aktif yang tumpang tindih.</li>
+              </ul>
+            </div>
           </div>
 
           <div class="panel">
-            <h2>Aturan validasi</h2>
-            <ul class="check-list">
-              <li>Guru harus mengajar mapel yang dipilih.</li>
-              <li>Murid harus mengambil mapel tersebut.</li>
-              <li>Slot wajib masuk availability guru.</li>
-              <li>Guru tidak boleh punya jadwal aktif yang tumpang tindih.</li>
-              <li>Murid tidak boleh punya jadwal aktif yang tumpang tindih.</li>
-            </ul>
+            <div class="panel-head">
+              <div>
+                <h2>Daftar jadwal aktif</h2>
+                <p>Kelola jadwal yang sudah tersimpan dari halaman ini.</p>
+              </div>
+            </div>
+            <div id="scheduleList" class="card-list"></div>
           </div>
         </section>
 
