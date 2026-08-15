@@ -4,18 +4,23 @@ Saya ingin membuat sistem seperti yang dibuat ISP Manajemen Sistem, tapi untuk l
 
 
 # Target User
-Provider atau perusahaan penyedia layanan les belajar anak-anak.
+Client admin, yaitu pemilik atau admin perusahaan penyedia layanan les belajar anak-anak.
 
-# Target consumen
+# Target calon pendaftar
 Orang tua yang ingin mendaftarkan anaknya ke les belajar
+
+# Catatan konsep aplikasi
+- Jangan gunakan konsep "provider" dan "customer" di tampilan aplikasi karena membingungkan.
+- Gunakan istilah peran yang langsung sesuai dengan bisnis les: admin les, orang tua, murid, guru, cabang, jadwal, pendaftaran, dan chatbot.
+- Jika masih ada nama route, API, tabel, atau function lama yang memakai istilah provider, anggap itu detail teknis internal sampai ada refactor khusus. UI untuk client harus tetap memakai istilah admin les.
 
 # Feature
 - Login Client admin.
-- Chatbot yang berperan sebagai customer service dan sales agent
+- Chatbot yang berperan sebagai admin penerima pertanyaan dan pendaftaran awal
 - Pencatatan pendaftaran anak hasil dari chatbot
 - Menampilkan dan mengatur pendaftaran
 - Manajemen Murid
-- CRUD Guru pembimbing
+- Manajemen Guru pembimbing
 - Generate dan mengatur jadwal pengajaran.
 - Billing biaya les bahasa
 - Feature pengingat jadwal automatis ke guru dan orang tua.
@@ -75,4 +80,4 @@ Paket belajar adalah paket yang bisa dipilih oleh orang tua untuk anaknya, setia
 - Sistem chatbot akan sama dengan sistem ISP Manajemen sistem, yang berbeda adalah apa yang dijual dan pengetahuan produknya.
 
 # Tujuan projek
-Membuat sistem manajemen dan juga memiliki sistem chatbot yang robush bisa handle semua pertanyaan dengan jawaban yang tepat agar bisa memberikan informasi tentang usaha ini kepada calon consumen ataupun yang sudah menjadi consumen
+Membuat sistem manajemen dan juga memiliki sistem chatbot yang robush bisa handle semua pertanyaan dengan jawaban yang tepat agar bisa memberikan informasi tentang usaha ini kepada calon pendaftar ataupun orang tua murid yang sudah terdaftar.

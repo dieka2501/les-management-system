@@ -12,6 +12,7 @@ from backend.app.main import (
     instagram_raw_webhook_debug_text,
     is_protected_api_path,
     is_protected_dashboard_path,
+    normalize_client_api_path,
     parse_host_value,
     safe_next_path,
 )
@@ -49,8 +50,11 @@ class ServerConfigTestCase(unittest.TestCase):
         self.assertTrue(is_protected_api_path("/api/dashboard-data"))
         self.assertTrue(is_protected_api_path("/api/branches"))
         self.assertTrue(is_protected_api_path("/api/schedules/generate"))
+        self.assertTrue(is_protected_api_path("/api/client/chat-simulations"))
 
     def test_auth_and_webhook_paths_stay_public(self) -> None:
+        self.assertFalse(is_protected_api_path("/api/client/login"))
+        self.assertFalse(is_protected_api_path("/api/client/auth"))
         self.assertFalse(is_protected_api_path("/api/provider/login"))
         self.assertFalse(is_protected_api_path("/api/provider/auth"))
         self.assertFalse(is_protected_api_path("/api/v1/webhooks/fonnte"))
@@ -63,9 +67,17 @@ class ServerConfigTestCase(unittest.TestCase):
         self.assertFalse(is_protected_dashboard_path("/privacy-policy/"))
 
     def test_safe_next_path_allows_only_internal_paths(self) -> None:
-        self.assertEqual("/", safe_next_path("/", "/provider/chat-simulations"))
-        self.assertEqual("/provider/chat-simulations", safe_next_path("https://evil.example", "/provider/chat-simulations"))
-        self.assertEqual("/provider/chat-simulations", safe_next_path("//evil.example", "/provider/chat-simulations"))
+        self.assertEqual("/", safe_next_path("/", "/client/chatbot"))
+        self.assertEqual("/client/chatbot", safe_next_path("https://evil.example", "/client/chatbot"))
+        self.assertEqual("/client/chatbot", safe_next_path("//evil.example", "/client/chatbot"))
+
+    def test_client_chatbot_api_aliases_legacy_internal_paths(self) -> None:
+        self.assertEqual("/api/provider/login", normalize_client_api_path("/api/client/login"))
+        self.assertEqual(
+            "/api/provider/chat-simulations/12/messages/99",
+            normalize_client_api_path("/api/client/chat-simulations/12/messages/99"),
+        )
+        self.assertEqual("/api/branches", normalize_client_api_path("/api/branches"))
 
     def test_instagram_raw_webhook_debug_is_disabled_by_default(self) -> None:
         with patch.dict(os.environ, {"IG_DEBUG_RAW_WEBHOOK": ""}, clear=False):

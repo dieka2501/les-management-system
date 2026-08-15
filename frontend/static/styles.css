@@ -149,13 +149,13 @@ h1 {
   margin: 6px 0 8px;
   font-size: clamp(28px, 4vw, 42px);
   line-height: 1.05;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
 }
 
 h2 {
   margin-bottom: 6px;
   font-size: 23px;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 p {
@@ -202,11 +202,61 @@ p {
   display: block;
   margin-top: 8px;
   font-size: 31px;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
 }
 
 .panel {
   padding: 20px;
+}
+
+.flow-panel {
+  margin-bottom: 18px;
+}
+
+.flow-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: flow-step;
+}
+
+.flow-list li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 0.32fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  counter-increment: flow-step;
+}
+
+.flow-list li:first-child {
+  border-top: 0;
+}
+
+.flow-list li::before {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+  content: counter(flow-step);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.flow-list strong {
+  font-size: 14px;
+}
+
+.flow-list span {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 .panel-head {
@@ -433,5 +483,14 @@ textarea {
 
   .span-2 {
     grid-column: span 1;
+  }
+
+  .flow-list li {
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: flex-start;
+  }
+
+  .flow-list span {
+    grid-column: 2;
   }
 }

@@ -76,7 +76,7 @@ button:disabled {
   color: var(--blue);
 }
 
-.provider-shell {
+.admin-shell {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
   min-height: 100vh;
@@ -474,7 +474,7 @@ textarea:focus {
 }
 
 @media (max-width: 1120px) {
-  .provider-shell {
+  .admin-shell {
     grid-template-columns: 1fr;
   }
 

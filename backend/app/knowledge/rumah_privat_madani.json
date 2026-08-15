@@ -231,7 +231,7 @@
     "Jangan menentukan durasi sesi, jadwal, biaya tambahan, trial class, atau metode online/offline tanpa data admin.",
     "Jangan menetapkan harga English sebagai harga pasti.",
     "Gunakan pertanyaan klarifikasi saat kebutuhan pengguna belum spesifik.",
-    "MVP chatbot hanya menjawab pertanyaan; jangan menawarkan promo, jangan mengajak daftar, dan jangan membuat aksi sales.",
+    "Chatbot hanya menjawab pertanyaan berdasarkan knowledge base; jangan menawarkan promo, jangan mengajak daftar, dan jangan membuat aksi sales.",
     "Jangan langsung menghubungkan pengguna ke admin tanpa persetujuan eksplisit.",
     "Jika pengguna ingin daftar, tanyakan persetujuan dengan kalimat: Apakah mau diteruskan ke pendaftaran?",
     "Jika pengguna setuju diteruskan, jawab: Baik, saya akan hubungkan ke admin."

@@ -3,22 +3,23 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Provider Chat Simulations</title>
-    <link rel="stylesheet" href="/provider/assets/chat-simulations.css" />
+    <title>Pengaturan Chatbot Les</title>
+    <link rel="stylesheet" href="/client/assets/chat-simulations.css" />
   </head>
   <body>
-    <div class="provider-shell">
-      <aside class="rail" aria-label="Navigasi provider">
+    <div class="admin-shell">
+      <aside class="rail" aria-label="Navigasi admin les">
         <div class="brand">
           <span class="brand-mark">LB</span>
           <div>
-            <strong>Provider</strong>
-            <span>Chat Lab</span>
+            <strong>Admin Les</strong>
+            <span>Chatbot</span>
           </div>
         </div>
         <nav>
-          <a class="active" href="/provider/chat-simulations">Simulasi</a>
-          <a href="#trainingPanel">Dataset</a>
+          <a href="/">Operasional</a>
+          <a class="active" href="/client/chatbot">Latih Chatbot</a>
+          <a href="#trainingPanel">Koreksi Jawaban</a>
           <a href="#faqPanel">Knowledge Base</a>
         </nav>
       </aside>
@@ -26,8 +27,8 @@
       <main class="workspace">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Provider system</p>
-            <h1>Simulasi Percakapan</h1>
+            <p class="eyebrow">Admin Chatbot</p>
+            <h1>Latih Chatbot WA & Instagram</h1>
           </div>
           <div class="toolbar">
             <label class="mode-picker" for="replyModeSelect">
@@ -37,13 +38,13 @@
                 <option value="gemini">Gemini AI</option>
               </select>
             </label>
-            <button class="secondary" id="seedButton" type="button">Seed knowledge</button>
-            <button id="newSessionButton" type="button">Sesi baru</button>
+            <button class="secondary" id="seedButton" type="button">Muat contoh awal</button>
+            <button id="newSessionButton" type="button">Latihan baru</button>
             <button class="secondary" id="logoutButton" type="button">Keluar</button>
           </div>
         </header>
 
-        <section class="layout-grid" aria-label="Simulasi percakapan provider">
+        <section class="layout-grid" aria-label="Latihan percakapan chatbot">
           <aside class="panel sessions-panel">
             <div class="panel-head">
               <div>
@@ -53,7 +54,7 @@
               <button class="icon-button" id="refreshButton" type="button" title="Refresh">R</button>
             </div>
             <div class="new-session-row">
-              <input id="sessionTitleInput" type="text" value="Latihan CS Knowledge Base" aria-label="Judul sesi" />
+              <input id="sessionTitleInput" type="text" value="Latihan jawaban chatbot" aria-label="Judul latihan" />
             </div>
             <div class="session-list" id="sessionList"></div>
           </aside>
@@ -62,9 +63,9 @@
             <div class="panel-head chat-head">
               <div>
                 <h2 id="activeSessionTitle">Belum ada sesi</h2>
-                <p id="activeSessionMeta">Buat sesi untuk mulai simulasi.</p>
+                <p id="activeSessionMeta">Buat latihan untuk mulai menguji jawaban.</p>
               </div>
-              <span class="status-pill" id="stagePill">start</span>
+              <span class="status-pill" id="stagePill">Mulai</span>
             </div>
             <div class="chat-thread" id="chatThread"></div>
             <form class="composer" id="messageForm">
@@ -77,10 +78,10 @@
             <section class="panel" id="trainingPanel">
               <div class="panel-head">
                 <div>
-                  <h2>Training Examples</h2>
+                  <h2>Koreksi Jawaban</h2>
                   <p id="trainingCount">0 contoh</p>
                 </div>
-                <button class="secondary compact" id="copyTrainingButton" type="button">Copy JSON</button>
+                <button class="secondary compact" id="copyTrainingButton" type="button">Salin JSON</button>
               </div>
               <div class="example-list" id="trainingExamples"></div>
             </section>
@@ -89,7 +90,7 @@
               <div class="panel-head">
                 <div>
                   <h2>Knowledge Base</h2>
-                  <p>Respons ideal</p>
+                  <p>Contoh jawaban dasar</p>
                 </div>
               </div>
               <div class="faq-list" id="faqScript"></div>
@@ -100,6 +101,6 @@
     </div>
 
     <div class="toast" id="toast" hidden></div>
-    <script src="/provider/assets/chat-simulations.js"></script>
+    <script src="/client/assets/chat-simulations.js"></script>
   </body>
 </html>

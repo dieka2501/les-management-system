@@ -28,6 +28,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 STATIC_ROOT = PROJECT_ROOT / "frontend" / "static"
 PROVIDER_ROOT = PROJECT_ROOT / "frontend" / "provider"
 PUBLIC_API_PATHS = {
+    "/api/client/auth",
+    "/api/client/login",
+    "/api/client/logout",
     "/api/provider/auth",
     "/api/provider/login",
     "/api/provider/logout",
@@ -43,6 +46,21 @@ def is_protected_api_path(path: str) -> bool:
 
 def is_protected_dashboard_path(path: str) -> bool:
     return path in PROTECTED_DASHBOARD_PATHS
+
+
+def normalize_client_api_path(path: str) -> str:
+    client_aliases = {
+        "/api/client/auth",
+        "/api/client/login",
+        "/api/client/logout",
+        "/api/client/chatbot-knowledge",
+        "/api/client/chat-simulations",
+        "/api/client/chat-simulations/faq-script",
+        "/api/client/chat-simulations/training-examples",
+    }
+    if path in client_aliases or path.startswith("/api/client/chat-simulations/"):
+        return path.replace("/api/client/", "/api/provider/", 1)
+    return path
 
 
 def safe_next_path(raw_next: str | None, fallback: str) -> str:
@@ -87,13 +105,14 @@ class LesRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
+        api_path = normalize_client_api_path(path)
         try:
             if is_protected_api_path(path):
                 self.require_provider_api_auth()
 
-            if path == "/api/dashboard-data":
+            if api_path == "/api/dashboard-data":
                 self.send_json(self.store.dashboard_data())
-            elif path in FONNTE_WEBHOOK_PATHS:
+            elif api_path in FONNTE_WEBHOOK_PATHS:
                 secret_status = self.store.verify_whatsapp_webhook_secret(parsed.query)
                 self.send_json(
                     {
@@ -103,57 +122,69 @@ class LesRequestHandler(BaseHTTPRequestHandler):
                         "secret": secret_status,
                     }
                 )
-            elif path == "/webhooks/instagram":
+            elif api_path == "/webhooks/instagram":
                 challenge = self.store.verify_instagram_webhook_challenge(parsed.query)
                 self.send_text(challenge)
-            elif path == "/api/summary":
+            elif api_path == "/api/summary":
                 self.send_json(self.store.summary())
-            elif path == "/api/subjects":
+            elif api_path == "/api/subjects":
                 self.send_json({"items": self.store.list_subjects()})
-            elif path == "/api/branches":
+            elif api_path == "/api/branches":
                 self.send_json({"items": self.store.list_branches()})
-            elif path == "/api/parents":
+            elif api_path == "/api/parents":
                 self.send_json({"items": self.store.list_parents()})
-            elif path == "/api/students":
+            elif api_path == "/api/students":
                 self.send_json({"items": self.store.list_students()})
-            elif path == "/api/tutors":
+            elif api_path == "/api/tutors":
                 self.send_json({"items": self.store.list_tutors()})
-            elif path == "/api/schedules":
+            elif api_path == "/api/schedules":
                 self.send_json({"items": self.store.list_schedules()})
-            elif path == "/api/registrations":
+            elif api_path == "/api/registrations":
                 self.send_json({"items": self.store.list_registrations()})
-            elif path == "/api/provider/auth":
+            elif api_path == "/api/provider/auth":
                 self.send_json(
                     {
                         "authenticated": self.is_provider_authenticated(),
                         "auth_required": provider_auth_required(),
                     }
                 )
-            elif path == "/api/provider/chat-simulations":
+            elif api_path == "/api/provider/chat-simulations":
                 self.require_provider_api_auth()
                 self.send_json({"items": self.store.list_provider_chat_simulation_sessions()})
-            elif path == "/api/provider/chatbot-knowledge":
+            elif api_path == "/api/provider/chatbot-knowledge":
                 self.require_provider_api_auth()
                 self.send_json(self.store.provider_chatbot_knowledge())
-            elif path == "/api/provider/chat-simulations/faq-script":
+            elif api_path == "/api/provider/chat-simulations/faq-script":
                 self.require_provider_api_auth()
                 self.send_json(self.store.provider_chat_simulation_faq_script())
-            elif path == "/api/provider/chat-simulations/training-examples":
+            elif api_path == "/api/provider/chat-simulations/training-examples":
                 self.require_provider_api_auth()
                 self.send_json({"items": self.store.list_provider_chat_training_examples()})
-            elif path.startswith("/api/provider/chat-simulations/"):
+            elif api_path.startswith("/api/provider/chat-simulations/"):
                 self.require_provider_api_auth()
-                session_id = self.parse_provider_chat_simulation_id(path)
+                session_id = self.parse_provider_chat_simulation_id(api_path)
                 self.send_json(self.store.get_provider_chat_simulation_session(session_id))
-            elif path == "/provider/login":
-                next_path = safe_next_path_from_query(parsed.query, "/provider/chat-simulations")
+            elif path in {"/client/login", "/provider/login"}:
+                next_path = safe_next_path_from_query(parsed.query, "/client/chatbot")
                 if self.is_provider_authenticated():
                     self.send_redirect(next_path)
                 else:
                     self.serve_provider_file("login.html")
-            elif path in {"/provider", "/provider/", "/provider/chat-simulations", "/provider/chat-simulations/"}:
+            elif path in {
+                "/client",
+                "/client/",
+                "/client/chatbot",
+                "/client/chatbot/",
+                "/provider",
+                "/provider/",
+                "/provider/chat-simulations",
+                "/provider/chat-simulations/",
+            }:
                 if self.require_provider_page_auth(path):
                     self.serve_provider_file("chat-simulations/index.html")
+            elif path.startswith("/client/assets/"):
+                if self.require_provider_page_auth(path):
+                    self.serve_provider_file(path.removeprefix("/client/"))
             elif path.startswith("/provider/assets/"):
                 if self.require_provider_page_auth(path):
                     self.serve_provider_file(path.removeprefix("/provider/"))
@@ -168,8 +199,9 @@ class LesRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
+        api_path = normalize_client_api_path(path)
         try:
-            if path in FONNTE_WEBHOOK_PATHS:
+            if api_path in FONNTE_WEBHOOK_PATHS:
                 secret_status = self.store.verify_whatsapp_webhook_secret(parsed.query)
                 raw_body = self.read_raw_body()
                 result = self.store.handle_whatsapp_raw_webhook(raw_body, secret_status=secret_status)
@@ -180,7 +212,7 @@ class LesRequestHandler(BaseHTTPRequestHandler):
                 self.send_json({"status": "ok", **result})
                 return
 
-            if path == "/webhooks/instagram":
+            if api_path == "/webhooks/instagram":
                 raw_body = self.read_raw_body()
                 raw_debug_enabled = instagram_raw_webhook_debug_enabled()
                 if raw_debug_enabled:
@@ -198,7 +230,7 @@ class LesRequestHandler(BaseHTTPRequestHandler):
                 self.require_provider_api_auth()
 
             data = self.read_json_body()
-            if path == "/api/provider/login":
+            if api_path == "/api/provider/login":
                 authenticate_provider_payload(data)
                 self.send_json(
                     {
@@ -207,31 +239,31 @@ class LesRequestHandler(BaseHTTPRequestHandler):
                     },
                     headers={"Set-Cookie": make_provider_auth_cookie()},
                 )
-            elif path == "/api/provider/logout":
+            elif api_path == "/api/provider/logout":
                 self.send_json(
                     {"authenticated": False},
                     headers={"Set-Cookie": make_provider_logout_cookie()},
                 )
-            elif path == "/api/branches":
+            elif api_path == "/api/branches":
                 self.send_json(self.store.create_branch(data), HTTPStatus.CREATED)
-            elif path == "/api/parents":
+            elif api_path == "/api/parents":
                 self.send_json(self.store.create_parent(data), HTTPStatus.CREATED)
-            elif path == "/api/students":
+            elif api_path == "/api/students":
                 self.send_json(self.store.create_student(data), HTTPStatus.CREATED)
-            elif path == "/api/tutors":
+            elif api_path == "/api/tutors":
                 self.send_json(self.store.create_tutor(data), HTTPStatus.CREATED)
-            elif path == "/api/schedules":
+            elif api_path == "/api/schedules":
                 self.send_json(self.store.create_schedule(data), HTTPStatus.CREATED)
-            elif path == "/api/schedules/generate":
+            elif api_path == "/api/schedules/generate":
                 self.send_json(self.store.generate_schedule_candidates(data))
-            elif path == "/api/schedules/confirm":
+            elif api_path == "/api/schedules/confirm":
                 self.send_json(self.store.confirm_generated_schedule(data), HTTPStatus.CREATED)
-            elif path == "/api/provider/chat-simulations":
+            elif api_path == "/api/provider/chat-simulations":
                 self.require_provider_api_auth()
                 self.send_json(self.store.create_provider_chat_simulation_session(data), HTTPStatus.CREATED)
-            elif path.startswith("/api/provider/chat-simulations/"):
+            elif api_path.startswith("/api/provider/chat-simulations/"):
                 self.require_provider_api_auth()
-                session_id = self.parse_provider_chat_simulation_message_path(path)
+                session_id = self.parse_provider_chat_simulation_message_path(api_path)
                 self.send_json(self.store.send_provider_chat_simulation_message(session_id, data), HTTPStatus.CREATED)
             else:
                 self.send_error_json(HTTPStatus.NOT_FOUND, "Endpoint tidak ditemukan.")
@@ -240,16 +272,17 @@ class LesRequestHandler(BaseHTTPRequestHandler):
 
     def do_PUT(self) -> None:
         path = urlparse(self.path).path
+        api_path = normalize_client_api_path(path)
         try:
             if is_protected_api_path(path):
                 self.require_provider_api_auth()
             data = self.read_json_body()
-            if path.startswith("/api/provider/chat-simulations/"):
-                session_id, message_id = self.parse_provider_chat_simulation_message_update_path(path)
+            if api_path.startswith("/api/provider/chat-simulations/"):
+                session_id, message_id = self.parse_provider_chat_simulation_message_update_path(api_path)
                 self.send_json(self.store.update_provider_chat_simulation_message(session_id, message_id, data))
                 return
 
-            resource, item_id = self.parse_resource_id(path)
+            resource, item_id = self.parse_resource_id(api_path)
             if resource == "branches":
                 self.send_json(self.store.update_branch(item_id, data))
             elif resource == "parents":
@@ -267,11 +300,12 @@ class LesRequestHandler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:
         path = urlparse(self.path).path
+        api_path = normalize_client_api_path(path)
         try:
             if is_protected_api_path(path):
                 self.require_provider_api_auth()
 
-            resource, item_id = self.parse_resource_id(path)
+            resource, item_id = self.parse_resource_id(api_path)
             if resource == "branches":
                 self.send_json(self.store.archive_branch(item_id))
             elif resource == "parents":
@@ -292,13 +326,13 @@ class LesRequestHandler(BaseHTTPRequestHandler):
 
     def require_provider_api_auth(self) -> None:
         if not self.is_provider_authenticated():
-            raise ProviderAuthenticationError("Login provider dibutuhkan.")
+            raise ProviderAuthenticationError("Login admin dibutuhkan.")
 
     def require_provider_page_auth(self, requested_path: str) -> bool:
         if self.is_provider_authenticated():
             return True
-        next_path = quote(requested_path or "/provider/chat-simulations", safe="/")
-        self.send_redirect(f"/provider/login?next={next_path}")
+        next_path = quote(requested_path or "/client/chatbot", safe="/")
+        self.send_redirect(f"/client/login?next={next_path}")
         return False
 
     def parse_resource_id(self, path: str) -> tuple[str, int]:
@@ -358,7 +392,7 @@ class LesRequestHandler(BaseHTTPRequestHandler):
         if path in {"", "/"}:
             file_path = STATIC_ROOT / "index.html"
             if not file_path.exists():
-                self.send_redirect("/provider/chat-simulations")
+                self.send_redirect("/client/chatbot")
                 return
         else:
             file_path = (STATIC_ROOT / path.lstrip("/")).resolve()
@@ -389,11 +423,11 @@ class LesRequestHandler(BaseHTTPRequestHandler):
     def serve_provider_file(self, relative_path: str) -> None:
         file_path = (PROVIDER_ROOT / relative_path).resolve()
         if PROVIDER_ROOT.resolve() not in file_path.parents and file_path != PROVIDER_ROOT.resolve():
-            self.send_error_json(HTTPStatus.FORBIDDEN, "Akses file provider tidak diizinkan.")
+            self.send_error_json(HTTPStatus.FORBIDDEN, "Akses file admin tidak diizinkan.")
             return
 
         if not file_path.exists() or not file_path.is_file():
-            self.send_error_json(HTTPStatus.NOT_FOUND, "Halaman provider tidak ditemukan.")
+            self.send_error_json(HTTPStatus.NOT_FOUND, "Halaman admin tidak ditemukan.")
             return
 
         content_type = {

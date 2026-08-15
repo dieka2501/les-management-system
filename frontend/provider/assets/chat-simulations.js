@@ -7,6 +7,9 @@ const state = {
   replyMode: "rule_based",
 };
 
+const replyModeStorageKey = "adminChatReplyMode";
+const legacyReplyModeStorageKey = "providerChatReplyMode";
+
 const els = {};
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -32,14 +35,16 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("newSessionButton").addEventListener("click", () => createSession(false));
   document.getElementById("seedButton").addEventListener("click", () => createSession(true));
   document.getElementById("copyTrainingButton").addEventListener("click", copyTrainingExamples);
-  els.logoutButton.addEventListener("click", logoutProvider);
+  els.logoutButton.addEventListener("click", logoutAdmin);
   els.replyModeSelect.addEventListener("change", handleReplyModeChange);
   els.messageForm.addEventListener("submit", sendMessage);
   els.sessionList.addEventListener("click", handleSessionClick);
   els.chatThread.addEventListener("click", handleChatThreadClick);
   els.chatThread.addEventListener("submit", handleChatThreadSubmit);
 
-  state.replyMode = normalizeReplyMode(localStorage.getItem("providerChatReplyMode"));
+  state.replyMode = normalizeReplyMode(
+    localStorage.getItem(replyModeStorageKey) || localStorage.getItem(legacyReplyModeStorageKey)
+  );
   els.replyModeSelect.value = state.replyMode;
   loadAll();
 });
@@ -52,7 +57,7 @@ async function api(path, options = {}) {
   const payload = await response.json();
   if (!response.ok) {
     if (response.status === 401) {
-      window.location.href = "/provider/login";
+      window.location.href = "/client/login?next=/client/chatbot";
       return new Promise(() => {});
     }
     throw new Error(payload.error || "Request gagal.");
@@ -60,21 +65,21 @@ async function api(path, options = {}) {
   return payload;
 }
 
-async function logoutProvider() {
+async function logoutAdmin() {
   try {
-    await api("/api/provider/logout", { method: "POST", body: JSON.stringify({}) });
+    await api("/api/client/logout", { method: "POST", body: JSON.stringify({}) });
   } catch {
     // Tetap arahkan ke login walaupun request logout gagal, agar user tidak tersangkut di UI.
   }
-  window.location.href = "/provider/login";
+  window.location.href = "/client/login?next=/client/chatbot";
 }
 
 async function loadAll() {
   try {
     const [sessionsPayload, faqPayload, trainingPayload] = await Promise.all([
-      api("/api/provider/chat-simulations"),
-      api("/api/provider/chat-simulations/faq-script"),
-      api("/api/provider/chat-simulations/training-examples"),
+      api("/api/client/chat-simulations"),
+      api("/api/client/chat-simulations/faq-script"),
+      api("/api/client/chat-simulations/training-examples"),
     ]);
     state.sessions = sessionsPayload.items || [];
     state.faqScript = faqPayload.items || [];
@@ -96,14 +101,14 @@ async function loadAll() {
 }
 
 async function createSession(seedFromFaq) {
-  const title = els.sessionTitleInput.value.trim() || "Latihan CS Knowledge Base";
+  const title = els.sessionTitleInput.value.trim() || "Latihan jawaban chatbot";
   try {
-    const session = await api("/api/provider/chat-simulations", {
+    const session = await api("/api/client/chat-simulations", {
       method: "POST",
       body: JSON.stringify({ title, seed_from_faq: seedFromFaq }),
     });
     state.activeSession = session;
-    showToast(seedFromFaq ? "Sesi knowledge base siap." : "Sesi baru siap.");
+    showToast(seedFromFaq ? "Contoh awal chatbot dimuat." : "Latihan baru siap.");
     await loadAll();
   } catch (error) {
     showToast(error.message, true);
@@ -112,7 +117,7 @@ async function createSession(seedFromFaq) {
 
 async function openSession(sessionId, options = {}) {
   try {
-    state.activeSession = await api(`/api/provider/chat-simulations/${sessionId}`);
+    state.activeSession = await api(`/api/client/chat-simulations/${sessionId}`);
     renderActiveSession();
     renderSessions();
     if (!options.silent) {
@@ -134,7 +139,7 @@ async function sendMessage(event) {
 
   setComposerDisabled(true);
   try {
-    const result = await api(`/api/provider/chat-simulations/${state.activeSession.id}/messages`, {
+    const result = await api(`/api/client/chat-simulations/${state.activeSession.id}/messages`, {
       method: "POST",
       body: JSON.stringify({ message, mode: state.replyMode }),
     });
@@ -153,8 +158,9 @@ async function sendMessage(event) {
 function handleReplyModeChange() {
   state.replyMode = normalizeReplyMode(els.replyModeSelect.value);
   els.replyModeSelect.value = state.replyMode;
-  localStorage.setItem("providerChatReplyMode", state.replyMode);
-  showToast(state.replyMode === "gemini" ? "Mode Gemini AI aktif." : "Mode rule-based aktif.");
+  localStorage.setItem(replyModeStorageKey, state.replyMode);
+  localStorage.removeItem(legacyReplyModeStorageKey);
+  showToast(state.replyMode === "gemini" ? "Mode Gemini AI aktif." : "Mode aturan dasar aktif.");
 }
 
 function normalizeReplyMode(value) {
@@ -182,7 +188,7 @@ function renderSessions() {
           <span class="item-title">
             <span>${escapeHtml(session.code)}</span>
             <span class="status-pill ${session.current_stage === "needs_review" ? "review" : ""}">
-              ${escapeHtml(session.current_stage)}
+              ${escapeHtml(formatStage(session.current_stage))}
             </span>
           </span>
           <span class="item-meta">${escapeHtml(session.title)}</span>
@@ -197,27 +203,27 @@ function renderActiveSession() {
   const session = state.activeSession;
   if (!session) {
     els.activeSessionTitle.textContent = "Belum ada sesi";
-    els.activeSessionMeta.textContent = "Buat sesi untuk mulai simulasi.";
-    els.stagePill.textContent = "start";
+    els.activeSessionMeta.textContent = "Buat latihan untuk mulai menguji jawaban chatbot.";
+    els.stagePill.textContent = "Mulai";
     els.stagePill.classList.remove("review");
-    els.chatThread.innerHTML = `<div class="empty-state">Belum ada percakapan.</div>`;
+    els.chatThread.innerHTML = `<div class="empty-state">Belum ada latihan percakapan.</div>`;
     setComposerDisabled(true);
     return;
   }
 
   els.activeSessionTitle.textContent = `${session.code} - ${session.title}`;
-  els.activeSessionMeta.textContent = `${session.channel} / ${session.source} / ${session.status}`;
-  els.stagePill.textContent = session.current_stage;
+  els.activeSessionMeta.textContent = `${formatChannel(session.channel)} / ${formatSource(session.source)} / ${formatStatus(session.status)}`;
+  els.stagePill.textContent = formatStage(session.current_stage);
   els.stagePill.classList.toggle("review", session.current_stage === "needs_review");
   const isTransferredToAdmin = session.current_stage === "transferred_to_admin";
   setComposerDisabled(isTransferredToAdmin);
   els.messageInput.placeholder = isTransferredToAdmin
-    ? "Chat sudah diteruskan ke admin."
+    ? "Chat sudah diteruskan ke admin manusia."
     : "Tulis pesan calon orang tua...";
 
   const messages = session.messages || [];
   if (!messages.length) {
-    els.chatThread.innerHTML = `<div class="empty-state">Kirim pesan pertama dari calon orang tua.</div>`;
+    els.chatThread.innerHTML = `<div class="empty-state">Kirim contoh pertanyaan dari calon orang tua.</div>`;
     return;
   }
 
@@ -227,12 +233,12 @@ function renderActiveSession() {
 
 function renderMessage(message) {
   const isParent = message.role === "parent";
-  const label = isParent ? "Calon orang tua" : "Asisten";
+  const label = isParent ? "Calon orang tua" : "Chatbot";
   const isEditing = state.editingResponseId === Number(message.id);
   const tags = [
-    message.intent,
-    message.matched_reference,
-    message.needs_review ? "needs review" : "",
+    formatIntent(message.intent),
+    formatReference(message.matched_reference),
+    message.needs_review ? "perlu cek" : "",
   ].filter(Boolean);
 
   return `
@@ -256,7 +262,7 @@ function renderMessage(message) {
       </div>
       ${
         !isParent && !isEditing
-          ? `<div class="message-actions"><button class="text-button" type="button" data-action="edit-response" data-message-id="${message.id}">Edit respons</button></div>`
+          ? `<div class="message-actions"><button class="text-button" type="button" data-action="edit-response" data-message-id="${message.id}">Koreksi jawaban</button></div>`
           : ""
       }
     </article>
@@ -288,12 +294,12 @@ async function handleChatThreadSubmit(event) {
   const messageId = Number(form.dataset.messageId);
   const message = form.elements.message.value.trim();
   if (!message) {
-    showToast("Respons tidak boleh kosong.", true);
+    showToast("Jawaban koreksi tidak boleh kosong.", true);
     return;
   }
 
   try {
-    const result = await api(`/api/provider/chat-simulations/${state.activeSession.id}/messages/${messageId}`, {
+    const result = await api(`/api/client/chat-simulations/${state.activeSession.id}/messages/${messageId}`, {
       method: "PUT",
       body: JSON.stringify({ message }),
     });
@@ -301,7 +307,7 @@ async function handleChatThreadSubmit(event) {
     state.activeSession = result.session;
     renderActiveSession();
     await refreshTrainingExamples();
-    showToast("Respons disimpan.");
+    showToast("Koreksi jawaban disimpan.");
   } catch (error) {
     showToast(error.message, true);
   }
@@ -317,7 +323,7 @@ function focusResponseEditor() {
 
 function renderFaq() {
   if (!state.faqScript.length) {
-    els.faqScript.innerHTML = `<div class="empty-state">Knowledge base belum tersedia.</div>`;
+    els.faqScript.innerHTML = `<div class="empty-state">Knowledge base awal belum tersedia.</div>`;
     return;
   }
 
@@ -335,7 +341,7 @@ function renderFaq() {
 function renderTrainingExamples() {
   els.trainingCount.textContent = `${state.trainingExamples.length} contoh`;
   if (!state.trainingExamples.length) {
-    els.trainingExamples.innerHTML = `<div class="empty-state">Belum ada dataset.</div>`;
+    els.trainingExamples.innerHTML = `<div class="empty-state">Belum ada koreksi jawaban.</div>`;
     return;
   }
 
@@ -344,13 +350,13 @@ function renderTrainingExamples() {
     .reverse()
     .map((item) => `
       <article class="example-item">
-        <strong>${escapeHtml(item.session_code)} / ${escapeHtml(item.intent || "unknown")}</strong>
+        <strong>${escapeHtml(item.session_code)} / ${escapeHtml(formatIntent(item.intent) || "Belum terdeteksi")}</strong>
         <p>${escapeHtml(item.parent_message)}</p>
         <p>${escapeHtml(item.expected_reply || "")}</p>
         <div class="message-meta">
-          <span class="tag ${item.needs_review ? "review" : ""}">${item.needs_review ? "review" : "ready"}</span>
+          <span class="tag ${item.needs_review ? "review" : ""}">${item.needs_review ? "perlu cek" : "siap"}</span>
           ${item.edited_by_provider ? `<span class="tag">koreksi aktif</span>` : ""}
-          <span class="tag">${escapeHtml(item.matched_reference || "no-ref")}</span>
+          <span class="tag">${escapeHtml(formatReference(item.matched_reference) || "Tanpa referensi")}</span>
         </div>
       </article>
     `)
@@ -358,7 +364,7 @@ function renderTrainingExamples() {
 }
 
 async function refreshTrainingExamples() {
-  const payload = await api("/api/provider/chat-simulations/training-examples");
+  const payload = await api("/api/client/chat-simulations/training-examples");
   state.trainingExamples = payload.items || [];
   renderTrainingExamples();
 }
@@ -367,10 +373,89 @@ async function copyTrainingExamples() {
   const text = JSON.stringify(state.trainingExamples, null, 2);
   try {
     await navigator.clipboard.writeText(text);
-    showToast("Dataset disalin.");
+    showToast("Dataset koreksi disalin.");
   } catch {
     showToast("Clipboard browser menolak akses.", true);
   }
+}
+
+function formatChannel(value) {
+  const labels = {
+    provider: "Latihan admin",
+    whatsapp: "WhatsApp",
+    instagram: "Instagram",
+  };
+  return labels[value] || value || "-";
+}
+
+function formatSource(value) {
+  const labels = {
+    knowledge_base: "Knowledge base",
+    fonnte_webhook: "Webhook Fonnte",
+    instagram_webhook: "Webhook Instagram",
+  };
+  return labels[value] || value || "-";
+}
+
+function formatStatus(value) {
+  const labels = {
+    open: "Aktif",
+    closed: "Selesai",
+  };
+  return labels[value] || value || "-";
+}
+
+function formatStage(value) {
+  const labels = {
+    start: "Mulai",
+    knowledge_seeded: "Contoh awal",
+    greeting: "Sapaan",
+    clarify_package: "Butuh detail",
+    ask_child_profile: "Profil anak",
+    ask_package_selection: "Pilih paket",
+    answered_price: "Info biaya",
+    answered_package_materials: "Info paket",
+    answered_package_recommendation: "Rekomendasi paket",
+    answered_coverage: "Area layanan",
+    answered_contact_info: "Info kontak",
+    close_confirmation_prompt: "Konfirmasi admin",
+    continue_qa: "Tanya jawab",
+    db_training_override: "Pakai koreksi",
+    needs_admin_confirmation: "Perlu admin",
+    needs_review: "Perlu cek",
+    out_of_scope: "Di luar topik",
+    transferred_to_admin: "Admin manusia",
+  };
+  return labels[value] || formatToken(value);
+}
+
+function formatIntent(value) {
+  const labels = {
+    greeting: "Sapaan",
+    package_price: "Harga paket",
+    package_recommendation: "Rekomendasi paket",
+    list_packages: "Daftar paket",
+    coverage_area: "Area layanan",
+    close_confirmation_prompt: "Konfirmasi admin",
+    admin_handoff_confirmed: "Diteruskan ke admin",
+  };
+  return labels[value] || formatToken(value);
+}
+
+function formatReference(value) {
+  if (!value) return "";
+  return String(value)
+    .replaceAll("db/provider-training:", "Koreksi admin ")
+    .replaceAll("knowledge_base:", "Knowledge base ")
+    .replaceAll("faq:", "FAQ ")
+    .replaceAll("_", " ");
+}
+
+function formatToken(value) {
+  if (!value) return "";
+  return String(value)
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function setComposerDisabled(disabled) {

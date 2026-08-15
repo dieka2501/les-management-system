@@ -13,7 +13,7 @@
           <div class="brand-mark">LB</div>
           <div>
             <strong>Les Belajar</strong>
-            <span>Dashboard Operasional</span>
+            <span>Admin Les</span>
           </div>
         </div>
         <nav class="nav">
@@ -24,19 +24,20 @@
           <a href="#guru">👩‍🏫 Guru</a>
           <a href="#jadwal">📅 Jadwal</a>
           <a href="#generator">⚡ Generate Jadwal</a>
+          <a href="/client/chatbot">🤖 Chatbot</a>
         </nav>
         <div class="sidebar-note">
-          <strong>Status MVP</strong>
-          <p>Data tersimpan di SQLite lokal. Generator jadwal sudah menolak bentrok guru dan murid.</p>
+          <strong>Alur admin</strong>
+          <p>Mulai dari data cabang, orang tua, murid, guru, jadwal, lalu latih chatbot dari menu Chatbot.</p>
         </div>
       </aside>
 
       <main class="main">
         <header class="topbar">
           <div>
-            <span class="eyebrow">MVP Aplikasi</span>
+            <span class="eyebrow">Aplikasi Admin Les</span>
             <h1>Dashboard Operasional Les</h1>
-            <p>Mulai dari data operasional inti: orang tua, murid, guru, dan jadwal.</p>
+            <p>Kelola data les, pendaftaran, jadwal, dan chatbot dari satu area admin.</p>
           </div>
           <div class="topbar-actions">
             <button class="btn secondary" id="refreshButton">Refresh data</button>
@@ -70,6 +71,37 @@
             </article>
           </div>
 
+          <div class="panel flow-panel">
+            <div class="panel-head">
+              <div>
+                <h2>Alur kerja admin</h2>
+                <p>Ikuti urutan ini agar data operasional dan chatbot saling tersambung.</p>
+              </div>
+            </div>
+            <ol class="flow-list">
+              <li>
+                <strong>Setup cabang</strong>
+                <span>Buat cabang sebagai area operasional data les.</span>
+              </li>
+              <li>
+                <strong>Catat orang tua dan murid</strong>
+                <span>Masukkan kontak orang tua, data murid, dan mata pelajaran yang dipilih.</span>
+              </li>
+              <li>
+                <strong>Lengkapi guru</strong>
+                <span>Isi mata pelajaran dan jam tersedia guru untuk validasi jadwal.</span>
+              </li>
+              <li>
+                <strong>Atur jadwal</strong>
+                <span>Buat manual atau pakai generator untuk mencari slot aman.</span>
+              </li>
+              <li>
+                <strong>Latih chatbot</strong>
+                <span>Koreksi jawaban di menu Chatbot agar WA dan Instagram menjawab lebih tepat.</span>
+              </li>
+            </ol>
+          </div>
+
           <div class="panel">
             <div class="panel-head">
               <div>
@@ -85,8 +117,8 @@
           <div class="panel">
             <div class="panel-head">
               <div>
-                <h2>CRUD Cabang</h2>
-                <p>Cabang menjadi scope data operasional: orang tua, murid, guru, dan jadwal.</p>
+                <h2>Tambah Cabang</h2>
+                <p>Cabang menjadi area operasional untuk orang tua, murid, guru, dan jadwal.</p>
               </div>
             </div>
             <form id="branchForm" class="form-grid">
@@ -117,7 +149,7 @@
           <div class="panel">
             <div class="panel-head">
               <div>
-                <h2>CRUD Orang Tua</h2>
+                <h2>Tambah Orang Tua</h2>
                 <p>Data ini menjadi kontak utama dan alamat billing.</p>
               </div>
             </div>
@@ -157,7 +189,7 @@
           <div class="panel">
             <div class="panel-head">
               <div>
-                <h2>CRUD Murid</h2>
+                <h2>Tambah Murid</h2>
                 <p>Satu murid bisa mengambil beberapa mata pelajaran.</p>
               </div>
             </div>
@@ -213,7 +245,7 @@
           <div class="panel">
             <div class="panel-head">
               <div>
-                <h2>CRUD Guru</h2>
+                <h2>Tambah Guru</h2>
                 <p>Mapel dan availability guru dipakai oleh generator jadwal.</p>
               </div>
             </div>

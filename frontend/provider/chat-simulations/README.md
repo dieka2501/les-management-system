@@ -1,20 +1,22 @@
-# Provider Chat Simulations UI
+# Admin Chatbot Training UI
 
-UI ini hanya disajikan lewat route provider:
+UI ini disajikan untuk admin les lewat route:
 
 ```text
-/provider/chat-simulations
+/client/chatbot
 ```
 
-Sebelum membuka simulator, user akan diminta password. Password disimpan di root `.env`:
+Route lama `/provider/chat-simulations` masih tersedia sebagai alias teknis agar link lama tidak putus, tetapi jangan dipakai di UX client.
+
+Sebelum membuka halaman latihan, user akan diminta password. Password disimpan di root `.env`:
 
 ```bash
 APP_AUTH_PASSWORD=...
 ```
 
-Tidak ada username. API provider juga ikut diproteksi oleh session cookie setelah login. Alias lama `CHATBOT_TEST_PASSWORD` tetap didukung jika konfigurasi lama masih dipakai.
+Tidak ada username. API internal chatbot juga ikut diproteksi oleh session cookie setelah login. Alias lama `CHATBOT_TEST_PASSWORD` tetap didukung jika konfigurasi lama masih dipakai.
 
-Asset JavaScript dan CSS berada di `frontend/provider/assets`. Tidak ada file yang ditambahkan ke dashboard client.
+Asset JavaScript dan CSS berada di `frontend/provider/assets`. Nama folder lama hanya detail teknis internal.
 
 Dropdown `Mode` mendukung:
 

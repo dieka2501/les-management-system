@@ -1,6 +1,6 @@
 # Sistem Manajemen Les Belajar
 
-Sistem operasional untuk perusahaan les belajar anak yang mencakup chatbot customer service, pendaftaran,
+Sistem operasional untuk perusahaan les belajar anak yang mencakup chatbot penerima pertanyaan, pendaftaran,
 data orang tua dan murid, guru, jadwal, serta generator jadwal tanpa tumpang tindih.
 
 Implementasi saat ini memakai Python standard library dan SQLite. Analisis pola yang akan diadaptasi dari
@@ -18,11 +18,11 @@ Kebutuhan dashboard operasional yang mudah digunakan dicatat di
 
 ## Fitur backend
 
-- CRUD cabang, orang tua, murid, guru, dan jadwal.
+- Manajemen cabang, orang tua, murid, guru, dan jadwal.
 - Validasi jadwal agar guru dan murid tidak bentrok.
 - Generator kandidat jadwal yang perlu dikonfirmasi admin sebelum disimpan.
 - Knowledge base chatbot Rumah Privat Madani dalam format JSON terstruktur.
-- Simulasi percakapan provider untuk melatih/evaluasi respons LLM berdasarkan knowledge base.
+- Latihan chatbot admin untuk melatih/evaluasi respons WA dan Instagram berdasarkan knowledge base.
 - Integrasi Gemini AI lewat backend proxy dengan guardrail agar hanya menjawab berdasarkan knowledge base.
 - Lifecycle close chat: chatbot hanya menjawab pertanyaan, lalu meminta persetujuan sebelum chat diteruskan ke admin manusia.
 
@@ -37,16 +37,16 @@ Dashboard operasional client tersedia di root aplikasi:
 Halaman ini wajib login karena menampilkan dan mengubah data operasional. Jika belum ada session, user akan diarahkan ke:
 
 ```text
-/provider/login?next=/
+/client/login?next=/
 ```
 
-Slice MVP dashboard mencakup CRUD cabang, orang tua, murid, guru, jadwal manual, dan generator jadwal otomatis. Data operasional memakai `branch_id`, bukan teks kota bebas. Cabang menyimpan nama, alamat, dan kota/kabupaten, misalnya:
+Dashboard admin mencakup manajemen cabang, orang tua, murid, guru, jadwal manual, dan generator jadwal otomatis. Data operasional memakai `branch_id`, bukan teks kota bebas. Cabang menyimpan nama, alamat, dan kota/kabupaten, misalnya:
 
 - Cabang Jalan Kenangan, Kota Tasikmalaya.
 - Cabang Jalan Delima, Kabupaten Tasik.
 - Cabang Jalan Seram, Kota Bandung.
 
-Pada MVP ini jadwal hanya boleh dibuat jika murid dan guru berada di cabang yang sama. Mode lintas-cabang/online bisa ditambahkan nanti sebagai aturan eksplisit.
+Untuk saat ini jadwal hanya boleh dibuat jika murid dan guru berada di cabang yang sama. Mode lintas-cabang/online bisa ditambahkan nanti sebagai aturan eksplisit.
 
 ## Konfigurasi environment
 
@@ -182,7 +182,7 @@ Area internal dilindungi form login password-only:
 
 ```text
 / 
-/provider/chat-simulations
+/client/chatbot
 ```
 
 Password disimpan di `.env`:
@@ -191,7 +191,7 @@ Password disimpan di `.env`:
 APP_AUTH_PASSWORD
 ```
 
-Tidak ada username. Setelah password benar, browser akan menerima session cookie `HttpOnly` selama 12 jam. Dashboard operasional, API CRUD/generate/list data, dan API provider seperti `/api/provider/chat-simulations` ikut diproteksi, jadi tidak hanya tampilan UI yang terkunci.
+Tidak ada username. Setelah password benar, browser akan menerima session cookie `HttpOnly` selama 12 jam. Dashboard operasional, API manajemen data/generate/list data, dan API chatbot seperti `/api/client/chat-simulations` ikut diproteksi, jadi tidak hanya tampilan UI yang terkunci.
 
 Untuk mengganti password:
 
@@ -210,25 +210,27 @@ APP_AUTH_PASSWORD="password rahasia kamu"
 
 Alias lama `CHATBOT_TEST_PASSWORD` dan `CHATBOT_AUTH_SECRET` masih didukung untuk kompatibilitas, tetapi konfigurasi baru sebaiknya memakai `APP_AUTH_PASSWORD` dan `APP_AUTH_SECRET`.
 
-## Simulasi percakapan provider
+## Latihan chatbot admin
 
-UI simulasi tersedia di:
+UI latihan tersedia di:
 
 ```text
-/provider/chat-simulations
+/client/chatbot
 ```
 
-Fitur simulasi hanya tersedia di area provider dan tidak menambah layar atau kode client.
+Route lama `/provider/chat-simulations` masih tersedia sebagai alias teknis agar link lama tidak putus, tetapi UX client memakai `/client/chatbot`.
 
-Untuk mengganti jawaban ideal, klik `Edit respons` pada bubble asisten di chat simulation. Perubahan itu akan memperbarui pesan asisten dan `Training Examples`.
+Untuk mengganti jawaban ideal, klik `Koreksi jawaban` pada bubble chatbot. Perubahan itu akan memperbarui pesan chatbot dan daftar `Koreksi Jawaban`.
 
-- `GET /api/provider/chatbot-knowledge`
-- `GET /api/provider/chat-simulations/faq-script`
-- `POST /api/provider/chat-simulations`
-- `GET /api/provider/chat-simulations`
-- `GET /api/provider/chat-simulations/{id}`
-- `POST /api/provider/chat-simulations/{id}/messages`
-- `GET /api/provider/chat-simulations/training-examples`
+- `GET /api/client/chatbot-knowledge`
+- `GET /api/client/chat-simulations/faq-script`
+- `POST /api/client/chat-simulations`
+- `GET /api/client/chat-simulations`
+- `GET /api/client/chat-simulations/{id}`
+- `POST /api/client/chat-simulations/{id}/messages`
+- `GET /api/client/chat-simulations/training-examples`
+
+Endpoint lama `/api/provider/...` masih dipertahankan sebagai alias internal untuk kompatibilitas.
 
 Sumber utama chatbot ada di `backend/app/knowledge/rumah_privat_madani.json`, hasil normalisasi dari `rumah_privat_madani_chatbot_knowledge.md`.
 
@@ -256,13 +258,13 @@ Lalu jalankan server:
 ./reload_local.sh
 ```
 
-Di `/provider/chat-simulations`, pilih mode `Gemini AI` pada dropdown `Mode`, lalu kirim pesan seperti biasa.
+Di `/client/chatbot`, pilih mode `Gemini AI` pada dropdown `Mode`, lalu kirim pesan seperti biasa.
 
 Backend hanya mengirim pertanyaan yang relevan ke Gemini. Pertanyaan yang jelas di luar knowledge base akan ditolak lokal dengan jawaban aman, tanpa memanggil API.
 
 ### Close chat ke admin
 
-MVP chatbot tidak melakukan aksi sales langsung. Chatbot hanya menjawab pertanyaan dari knowledge base, lalu menanyakan persetujuan sebelum diteruskan ke admin.
+Chatbot tidak melakukan aksi sales langsung. Chatbot hanya menjawab pertanyaan dari knowledge base, lalu menanyakan persetujuan sebelum diteruskan ke admin.
 
 Trigger close confirmation:
 
@@ -396,7 +398,7 @@ Catatan:
 - `IG_DEBUG_RAW_WEBHOOK=1` hanya untuk development/debugging sementara. Jika aktif, server akan menulis raw payload webhook, raw hasil processing, dan raw response error dari Message Detail API ke log.
 - `IG_DEBUG_RAW_WEBHOOK_MAX_CHARS` membatasi panjang raw payload/response yang ditulis ke log. Set `0` jika benar-benar ingin tanpa limit.
 
-Peringatan: raw webhook bisa berisi isi DM, ID pengirim, dan data privat. Jangan aktifkan `IG_DEBUG_RAW_WEBHOOK=1` saat app sudah menerima customer umum. Sebelum production final, matikan env ini atau hapus logging raw webhook.
+Peringatan: raw webhook bisa berisi isi DM, ID pengirim, dan data privat. Jangan aktifkan `IG_DEBUG_RAW_WEBHOOK=1` saat app sudah menerima pengguna umum. Sebelum production final, matikan env ini atau hapus logging raw webhook.
 
 Contoh menjalankan lokal:
 
@@ -501,7 +503,7 @@ Catatan dari pengujian nyata:
 - Saat Meta App masih development/Standard Access, webhook DM hanya aktif untuk akun yang punya role di app, misalnya Admin, Developer, atau Instagram Tester.
 - Akun random/non-tester yang mengirim DM ke akun Instagram target tidak akan memunculkan log webhook di Railway. Ini perilaku normal sebelum App Review/Advanced Access.
 - Instagram Tester tidak cukup hanya ditambahkan di Meta Dashboard; akun tersebut harus menerima invitation terlebih dulu.
-- Untuk production, app perlu App Review/Advanced Access dan Live mode agar DM dari customer umum bisa diterima webhook.
+- Untuk production, app perlu App Review/Advanced Access dan Live mode agar DM dari pengguna umum bisa diterima webhook.
 
 Log diagnostik yang perlu dibedakan:
 

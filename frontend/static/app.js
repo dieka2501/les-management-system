@@ -68,7 +68,7 @@ async function api(path, options = {}) {
   const payload = await response.json();
   if (response.status === 401) {
     const next = encodeURIComponent(window.location.pathname + window.location.hash);
-    window.location.href = `/provider/login?next=${next}`;
+    window.location.href = `/client/login?next=${next}`;
     throw new Error("Sesi login berakhir. Silakan login ulang.");
   }
   if (!response.ok) {
@@ -79,9 +79,9 @@ async function api(path, options = {}) {
 
 async function logoutDashboard() {
   try {
-    await api("/api/provider/logout", { method: "POST", body: JSON.stringify({}) });
+    await api("/api/client/logout", { method: "POST", body: JSON.stringify({}) });
   } finally {
-    window.location.href = "/provider/login?next=/";
+    window.location.href = "/client/login?next=/";
   }
 }
 
