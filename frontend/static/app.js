@@ -285,10 +285,15 @@ function bindForms() {
       }
 
       const saved = await saveGeneratedCandidate(candidates[0]);
+      const savedSchedules = saved.saved || [];
       state.lastCandidates = [];
       state.lastDiagnostics = [];
-      renderGeneratedResult(saved.saved || [], candidates.length);
-      showToast("Jadwal berhasil digenerate dan masuk ke menu Jadwal.");
+      renderGeneratedResult(savedSchedules, candidates.length);
+      showToast(
+        savedSchedules.some((schedule) => schedule.status === "draft")
+          ? "Jadwal rekomendasi tersimpan sebagai draft dan perlu konfirmasi."
+          : "Jadwal berhasil digenerate dan masuk ke menu Jadwal."
+      );
       await loadDashboard();
       showView("jadwal");
     } catch (error) {
@@ -606,11 +611,11 @@ function addTutorAvailabilityRow(availability = {}) {
       <select data-availability-day required>${daySelectHtml}</select>
     </label>
     <label>
-      Mulai
+      Mulai awal
       <input data-availability-start type="time" value="${escapeHtml(availability.start_time || "15:00")}" required />
     </label>
     <label>
-      Selesai
+      Mulai terakhir
       <input data-availability-end type="time" value="${escapeHtml(availability.end_time || "19:00")}" required />
     </label>
     <button class="mini-btn danger" type="button" data-action="remove-availability">Hapus</button>
@@ -852,8 +857,11 @@ function scheduleCardsHtml(schedules, emptyMessage) {
             <p>${escapeHtml(schedule.subject_name)} • ${escapeHtml(schedule.student_name)} dengan ${escapeHtml(schedule.tutor_name)}</p>
             <p>Cabang: ${escapeHtml(schedule.branch_name)} • ${escapeHtml(schedule.branch_city)}</p>
             <p>Mode: ${escapeHtml(schedule.mode)}${schedule.location ? ` • ${escapeHtml(schedule.location)}` : ""}</p>
+            ${schedule.notes ? `<p>Catatan: ${escapeHtml(schedule.notes)}</p>` : ""}
           </div>
-          <span class="status">${escapeHtml(schedule.code)}</span>
+          <span class="status ${schedule.status === "draft" ? "warn" : ""}">
+            ${escapeHtml(schedule.status === "draft" ? `${schedule.code} • rekomendasi` : schedule.code)}
+          </span>
         </header>
         <div class="card-actions">
           <button class="mini-btn" data-action="edit-schedule" data-id="${schedule.id}">Edit</button>
@@ -894,15 +902,22 @@ function renderCandidates(message = "") {
           <p>Cabang: ${escapeHtml(candidate.branch_name)} • ${escapeHtml(candidate.branch_city)}</p>
           <p>${escapeHtml(candidate.reason)}</p>
         </div>
-        <span class="status">Aman</span>
+        <span class="status ${candidate.recommendation ? "warn" : ""}">
+          ${candidate.recommendation ? "Rekomendasi" : "Aman"}
+        </span>
       </header>
       <div class="chips">
         ${candidate.slots.map((slot) => `
           <span class="chip">${escapeHtml(slot.day_name)}, ${slot.start_time}-${slot.end_time}</span>
         `).join("")}
       </div>
+      ${candidate.warnings?.length ? `
+        <ul class="diagnostic-list">
+          ${candidate.warnings.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+        </ul>
+      ` : ""}
       <button class="btn secondary" style="margin-top:12px" data-action="confirm-candidate" data-index="${index}">
-        Konfirmasi jadwal ini
+        ${candidate.recommendation ? "Simpan rekomendasi ini" : "Konfirmasi jadwal ini"}
       </button>
     </article>
   `).join("");
@@ -910,6 +925,7 @@ function renderCandidates(message = "") {
 
 function renderGeneratedResult(savedSchedules, candidateCount) {
   const list = document.getElementById("candidateList");
+  const hasRecommendation = savedSchedules.some((schedule) => schedule.status === "draft");
   if (!savedSchedules.length) {
     list.innerHTML = `<div class="empty-state">Generate selesai, tapi jadwal belum tersimpan.</div>`;
     return;
@@ -920,15 +936,29 @@ function renderGeneratedResult(savedSchedules, candidateCount) {
       <header>
         <div>
           <strong>${savedSchedules.length} jadwal tersimpan</strong>
-          <p>Dipilih dari ${candidateCount} kandidat aman dan sudah masuk ke menu Jadwal.</p>
+          <p>
+            ${hasRecommendation
+              ? "Jadwal rekomendasi tersimpan sebagai draft dan perlu konfirmasi guru/admin."
+              : `Dipilih dari ${candidateCount} kandidat aman dan sudah masuk ke menu Jadwal.`}
+          </p>
         </div>
-        <span class="status">Tersimpan</span>
+        <span class="status ${hasRecommendation ? "warn" : ""}">
+          ${hasRecommendation ? "Rekomendasi" : "Tersimpan"}
+        </span>
       </header>
       <div class="chips">
         ${savedSchedules.map((schedule) => `
           <span class="chip">${escapeHtml(schedule.day_name)}, ${schedule.start_time}-${schedule.end_time}</span>
         `).join("")}
       </div>
+      ${hasRecommendation ? `
+        <ul class="diagnostic-list">
+          ${savedSchedules
+            .filter((schedule) => schedule.notes)
+            .map((schedule) => `<li>${escapeHtml(schedule.code)}: ${escapeHtml(schedule.notes)}</li>`)
+            .join("")}
+        </ul>
+      ` : ""}
     </article>
   `;
 }

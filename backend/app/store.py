@@ -56,7 +56,6 @@ from .instagram_webhook import (
 )
 from .scheduling import (
     DAY_NAMES,
-    contains_range,
     format_time,
     normalize_day,
     parse_time,
@@ -92,6 +91,16 @@ def validate_time_range_input(start: str, end: str) -> None:
         validate_time_range(start, end)
     except ValueError as exc:
         raise validation_from_value_error(exc) from exc
+
+
+def validate_start_window_input(start: str, end: str) -> None:
+    try:
+        start_minutes = parse_time(start)
+        end_minutes = parse_time(end)
+    except ValueError as exc:
+        raise validation_from_value_error(exc) from exc
+    if start_minutes > end_minutes:
+        raise ValidationError("Jam mulai paling akhir harus sama atau lebih besar dari jam mulai paling awal.")
 
 
 def row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
@@ -1080,7 +1089,7 @@ class LesStore:
             raise ValidationError("Pilih minimal satu preferensi hari.")
         preferred_start = data.get("preferred_start") or "08:00"
         preferred_end = data.get("preferred_end") or "20:00"
-        validate_time_range_input(preferred_start, preferred_end)
+        validate_start_window_input(preferred_start, preferred_end)
         tutor_id = data.get("tutor_id")
         starts_on = data.get("starts_on") or date.today().isoformat()
         ends_on = data.get("ends_on") or (date.today() + timedelta(days=90)).isoformat()
@@ -1097,6 +1106,7 @@ class LesStore:
             self.ensure_student_has_subject(conn, student_id, subject_id)
             tutors = self.find_eligible_tutors(conn, subject_id, branch_id, tutor_id)
             candidates: list[dict[str, Any]] = []
+            recommendation_candidates: list[dict[str, Any]] = []
             diagnostics: list[str] = []
             if not tutors:
                 diagnostics.append(
@@ -1141,6 +1151,49 @@ class LesStore:
                         }
                     )
                 else:
+                    recommended_slots = self.find_recommended_slots_for_tutor(
+                        conn,
+                        branch_id=branch_id,
+                        student_id=student_id,
+                        tutor_id=tutor["id"],
+                        subject_id=subject_id,
+                        tutor_name=tutor["full_name"],
+                        preferred_days=preferred_days,
+                        preferred_start=preferred_start,
+                        preferred_end=preferred_end,
+                        duration_minutes=duration_minutes,
+                        starts_on=starts_on,
+                        ends_on=ends_on,
+                        mode=mode,
+                        location=location,
+                    )
+                    selected_recommendations = self.select_slots(recommended_slots, sessions_per_week)
+                    if len(selected_recommendations) >= sessions_per_week:
+                        nearest_gap = min(slot["recommendation_gap_minutes"] for slot in selected_recommendations)
+                        schedule_count = self.count_active_tutor_schedules(conn, tutor["id"])
+                        recommendation_candidates.append(
+                            {
+                                "candidate_id": f"rec-{tutor['id']}",
+                                "tutor_id": tutor["id"],
+                                "tutor_name": tutor["full_name"],
+                                "branch_id": branch_id,
+                                "branch_name": branch["name"],
+                                "branch_city": branch["city"],
+                                "subject_id": subject_id,
+                                "subject_name": subject["name"],
+                                "student_id": student_id,
+                                "student_name": student["full_name"],
+                                "slots": selected_recommendations,
+                                "reason": (
+                                    f"Rekomendasi terdekat: {tutor['full_name']} belum pas dengan jam preferensi, "
+                                    f"tetapi paling dekat dan memiliki {schedule_count} jadwal aktif."
+                                ),
+                                "warnings": [selected_recommendations[0]["recommendation_reason"]],
+                                "recommendation": True,
+                                "recommendation_gap_minutes": nearest_gap,
+                                "tutor_schedule_count": schedule_count,
+                            }
+                        )
                     diagnostics.append(
                         self.explain_tutor_schedule_shortage(
                             conn,
@@ -1149,12 +1202,20 @@ class LesStore:
                             preferred_days=preferred_days,
                             preferred_start=preferred_start,
                             preferred_end=preferred_end,
-                            duration_minutes=duration_minutes,
                             available_slot_count=len(slots),
                             selected_slot_count=len(selected),
                             sessions_per_week=sessions_per_week,
                         )
                     )
+            if not candidates and recommendation_candidates:
+                recommendation_candidates.sort(
+                    key=lambda item: (
+                        item["recommendation_gap_minutes"],
+                        item["tutor_schedule_count"],
+                        item["tutor_name"],
+                    )
+                )
+                candidates = recommendation_candidates
 
             return {
                 "input": {
@@ -1178,7 +1239,9 @@ class LesStore:
                 "candidates": candidates,
                 "diagnostics": diagnostics,
                 "message": (
-                    "Kandidat jadwal ditemukan."
+                    "Kandidat rekomendasi ditemukan dan perlu konfirmasi guru/admin."
+                    if candidates and candidates[0].get("recommendation")
+                    else "Kandidat jadwal ditemukan."
                     if candidates
                     else "Belum ada kandidat jadwal yang memenuhi semua aturan. Lihat detail alasan per guru."
                 ),
@@ -1193,16 +1256,21 @@ class LesStore:
             normalized_slots = [self.normalize_schedule_input(slot, conn) for slot in slots]
             self.validate_new_slots_do_not_conflict_each_other(normalized_slots)
             for slot in normalized_slots:
-                self.validate_schedule_slot(conn, slot)
+                self.validate_schedule_slot(
+                    conn,
+                    slot,
+                    allow_tutor_availability_override=bool(slot.get("recommendation")),
+                )
             for slot in normalized_slots:
                 code = self.next_code(conn, "schedules", "JDL")
+                status = "draft" if slot.get("recommendation") else "active"
                 cursor = conn.execute(
                     """
                     INSERT INTO schedules (
                         code, branch_id, student_id, tutor_id, subject_id, day_of_week,
-                        start_time, end_time, starts_on, ends_on, mode, location, notes
+                        start_time, end_time, starts_on, ends_on, mode, location, status, notes
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         code,
@@ -1217,6 +1285,7 @@ class LesStore:
                         slot.get("ends_on"),
                         slot.get("mode") or "online",
                         slot.get("location"),
+                        status,
                         slot.get("notes"),
                     ),
                 )
@@ -1954,9 +2023,9 @@ class LesStore:
         result = []
         for item in value:
             day_of_week = normalize_day_input(item.get("day_of_week"))
-            start_time = require_text(item, "start_time", "Jam mulai availability")
-            end_time = require_text(item, "end_time", "Jam selesai availability")
-            validate_time_range_input(start_time, end_time)
+            start_time = require_text(item, "start_time", "Jam mulai awal availability")
+            end_time = require_text(item, "end_time", "Jam mulai terakhir availability")
+            validate_start_window_input(start_time, end_time)
             result.append({"day_of_week": day_of_week, "start_time": start_time, "end_time": end_time})
         return result
 
@@ -1991,6 +2060,8 @@ class LesStore:
             "mode": data.get("mode") or "online",
             "location": optional_text(data, "location"),
             "notes": optional_text(data, "notes"),
+            "recommendation": bool(data.get("recommendation")),
+            "recommendation_reason": optional_text(data, "recommendation_reason"),
         }
 
     def ensure_parent_exists(self, parent_id: int, conn: sqlite3.Connection) -> dict[str, Any]:
@@ -2023,14 +2094,16 @@ class LesStore:
             """,
             (slot["tutor_id"], slot["day_of_week"]),
         ).fetchall()
-        if not any(contains_range(row["start_time"], row["end_time"], slot["start_time"], slot["end_time"]) for row in rows):
-            raise ValidationError("Guru tidak tersedia pada hari dan jam tersebut.")
+        slot_start = parse_time(slot["start_time"])
+        if not any(parse_time(row["start_time"]) <= slot_start <= parse_time(row["end_time"]) for row in rows):
+            raise ValidationError("Guru tidak tersedia untuk mulai mengajar pada hari dan jam tersebut.")
 
     def validate_schedule_slot(
         self,
         conn: sqlite3.Connection,
         slot: dict[str, Any],
         exclude_schedule_id: int | None = None,
+        allow_tutor_availability_override: bool = False,
     ) -> None:
         student = self.get_student(slot["student_id"], conn)
         tutor = self.get_tutor(slot["tutor_id"], conn)
@@ -2048,7 +2121,8 @@ class LesStore:
             raise ValidationError("Mata pelajaran tidak aktif.")
         self.ensure_student_has_subject(conn, slot["student_id"], slot["subject_id"])
         self.ensure_tutor_teaches_subject(conn, slot["tutor_id"], slot["subject_id"])
-        self.ensure_tutor_available(conn, slot)
+        if not allow_tutor_availability_override:
+            self.ensure_tutor_available(conn, slot)
         self.ensure_no_existing_conflict(conn, slot, exclude_schedule_id=exclude_schedule_id)
 
     def ensure_no_existing_conflict(
@@ -2119,6 +2193,14 @@ class LesStore:
         ).fetchall()
         return rows_to_dicts(rows)
 
+    def count_active_tutor_schedules(self, conn: sqlite3.Connection, tutor_id: int) -> int:
+        return int(
+            conn.execute(
+                "SELECT COUNT(*) FROM schedules WHERE tutor_id = ? AND status IN ('draft', 'active')",
+                (tutor_id,),
+            ).fetchone()[0]
+        )
+
     def find_available_slots_for_tutor(
         self,
         conn: sqlite3.Connection,
@@ -2152,9 +2234,11 @@ class LesStore:
         preferred_end_minutes = parse_time(preferred_end)
         for availability in rows:
             window_start = max(parse_time(availability["start_time"]), preferred_start_minutes)
-            window_end = min(parse_time(availability["end_time"]), preferred_end_minutes)
+            latest_start = min(parse_time(availability["end_time"]), preferred_end_minutes)
             start = window_start
-            while start + duration_minutes <= window_end:
+            while start <= latest_start:
+                if start + duration_minutes > 24 * 60:
+                    break
                 slot = {
                     "branch_id": branch_id,
                     "student_id": student_id,
@@ -2179,6 +2263,88 @@ class LesStore:
                 start += 30
         return slots
 
+    def find_recommended_slots_for_tutor(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        branch_id: int,
+        student_id: int,
+        tutor_id: int,
+        subject_id: int,
+        tutor_name: str,
+        preferred_days: list[int],
+        preferred_start: str,
+        preferred_end: str,
+        duration_minutes: int,
+        starts_on: str,
+        ends_on: str,
+        mode: str,
+        location: str | None,
+    ) -> list[dict[str, Any]]:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM tutor_availabilities
+            WHERE tutor_id = ?
+              AND day_of_week IN ({})
+            ORDER BY day_of_week, start_time
+            """.format(",".join("?" for _ in preferred_days)),
+            [tutor_id, *preferred_days],
+        ).fetchall()
+
+        slots: list[dict[str, Any]] = []
+        preferred_start_minutes = parse_time(preferred_start)
+        preferred_end_minutes = parse_time(preferred_end)
+        for availability in rows:
+            available_start = parse_time(availability["start_time"])
+            available_latest_start = parse_time(availability["end_time"])
+            if available_latest_start < preferred_start_minutes:
+                recommended_start = preferred_start_minutes
+                gap_minutes = preferred_start_minutes - available_latest_start
+                direction = "lebih lambat dari jam mulai terakhir guru"
+            elif available_start > preferred_end_minutes:
+                recommended_start = available_start
+                gap_minutes = available_start - preferred_end_minutes
+                direction = "lebih lambat dari jam mulai paling akhir preferensi"
+            else:
+                continue
+
+            if gap_minutes > 60:
+                continue
+            if recommended_start + duration_minutes > 24 * 60:
+                continue
+
+            slot = {
+                "branch_id": branch_id,
+                "student_id": student_id,
+                "tutor_id": tutor_id,
+                "subject_id": subject_id,
+                "day_of_week": availability["day_of_week"],
+                "day_name": DAY_NAMES[availability["day_of_week"]],
+                "start_time": format_time(recommended_start),
+                "end_time": format_time(recommended_start + duration_minutes),
+                "starts_on": starts_on,
+                "ends_on": ends_on,
+                "mode": mode,
+                "location": location,
+                "recommendation": True,
+                "recommendation_gap_minutes": gap_minutes,
+                "recommendation_reason": (
+                    f"Rekomendasi: {tutor_name} paling dekat, selisih {gap_minutes} menit "
+                    f"({direction}). Perlu konfirmasi guru/admin."
+                ),
+                "notes": (
+                    f"Rekomendasi generator: selisih {gap_minutes} menit dari availability guru. "
+                    "Perlu konfirmasi guru/admin."
+                ),
+            }
+            try:
+                self.ensure_no_existing_conflict(conn, slot)
+            except ValidationError:
+                continue
+            slots.append(slot)
+        return slots
+
     def explain_tutor_schedule_shortage(
         self,
         conn: sqlite3.Connection,
@@ -2188,7 +2354,6 @@ class LesStore:
         preferred_days: list[int],
         preferred_start: str,
         preferred_end: str,
-        duration_minutes: int,
         available_slot_count: int,
         selected_slot_count: int,
         sessions_per_week: int,
@@ -2209,21 +2374,29 @@ class LesStore:
 
         preferred_start_minutes = parse_time(preferred_start)
         preferred_end_minutes = parse_time(preferred_end)
-        longest_overlap = 0
+        nearest_gap = None
+        has_start_overlap = False
         for availability in rows:
-            window_start = max(parse_time(availability["start_time"]), preferred_start_minutes)
-            window_end = min(parse_time(availability["end_time"]), preferred_end_minutes)
-            longest_overlap = max(longest_overlap, window_end - window_start)
+            available_start = parse_time(availability["start_time"])
+            available_latest_start = parse_time(availability["end_time"])
+            window_start = max(available_start, preferred_start_minutes)
+            latest_start = min(available_latest_start, preferred_end_minutes)
+            if window_start <= latest_start:
+                has_start_overlap = True
+                continue
+            gap = min(abs(preferred_start_minutes - available_latest_start), abs(available_start - preferred_end_minutes))
+            nearest_gap = gap if nearest_gap is None else min(nearest_gap, gap)
 
-        if longest_overlap <= 0:
+        if not has_start_overlap:
+            if nearest_gap is not None and nearest_gap <= 60:
+                return (
+                    f"{tutor_name}: tidak ada jam mulai yang masuk preferensi "
+                    f"{preferred_start}-{preferred_end}, tetapi ada availability berdekatan "
+                    f"selisih {nearest_gap} menit."
+                )
             return (
-                f"{tutor_name}: hari tersedia ada, tetapi di luar jam preferensi "
+                f"{tutor_name}: hari tersedia ada, tetapi tidak ada jam mulai yang masuk preferensi "
                 f"{preferred_start}-{preferred_end}."
-            )
-        if longest_overlap < duration_minutes:
-            return (
-                f"{tutor_name}: overlap terpanjang dengan jam preferensi hanya {longest_overlap} menit, "
-                f"kurang dari durasi {duration_minutes} menit."
             )
         if available_slot_count == 0:
             return f"{tutor_name}: ada waktu yang cukup, tetapi semua slot bentrok dengan jadwal aktif."

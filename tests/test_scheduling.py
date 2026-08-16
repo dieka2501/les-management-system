@@ -163,6 +163,33 @@ class SchedulingTestCase(unittest.TestCase):
 
         self.assertEqual([2, 4, 5], [item["day_of_week"] for item in updated["availabilities"]])
 
+    def test_manual_schedule_allows_tutor_latest_start_time(self) -> None:
+        self.store.update_tutor(
+            self.tutor["id"],
+            {
+                "full_name": "Guru Test",
+                "education": "S1 Pendidikan Matematika",
+                "subject_ids": [self.math_id],
+                "availabilities": [
+                    {"day_of_week": 0, "start_time": "14:00", "end_time": "14:00"},
+                ],
+            },
+        )
+
+        schedule = self.store.create_schedule(
+            {
+                "student_id": self.student["id"],
+                "tutor_id": self.tutor["id"],
+                "subject_id": self.math_id,
+                "day_of_week": 0,
+                "start_time": "14:00",
+                "end_time": "15:30",
+            }
+        )
+
+        self.assertEqual("14:00", schedule["start_time"])
+        self.assertEqual("15:30", schedule["end_time"])
+
     def test_generator_returns_non_overlapping_slot(self) -> None:
         self.store.create_schedule(
             {
@@ -192,7 +219,7 @@ class SchedulingTestCase(unittest.TestCase):
         self.assertEqual("17:00", slot["start_time"])
         self.assertEqual("18:30", slot["end_time"])
 
-    def test_generator_explains_when_preferred_window_is_too_short_without_existing_schedule(self) -> None:
+    def test_generator_treats_preferred_end_as_latest_start_time(self) -> None:
         self.store.update_tutor(
             self.tutor["id"],
             {
@@ -210,19 +237,114 @@ class SchedulingTestCase(unittest.TestCase):
             {
                 "student_id": self.student["id"],
                 "subject_id": self.math_id,
-                "sessions_per_week": 2,
+                "sessions_per_week": 1,
                 "duration_minutes": 90,
-                "preferred_days": [0, 1],
-                "preferred_start": "13:00",
-                "preferred_end": "15:00",
+                "preferred_days": [0],
+                "preferred_start": "14:00",
+                "preferred_end": "14:00",
             }
         )
 
         self.assertEqual([], self.store.list_schedules())
-        self.assertEqual([], result["candidates"])
-        self.assertIn("Belum ada kandidat jadwal yang memenuhi semua aturan", result["message"])
-        self.assertIn("overlap terpanjang", result["diagnostics"][0])
-        self.assertIn("kurang dari durasi 90 menit", result["diagnostics"][0])
+        self.assertEqual(1, len(result["candidates"]))
+        slot = result["candidates"][0]["slots"][0]
+        self.assertEqual("14:00", slot["start_time"])
+        self.assertEqual("15:30", slot["end_time"])
+
+    def test_generator_recommends_closest_tutor_when_no_exact_start_match(self) -> None:
+        self.store.update_tutor(
+            self.tutor["id"],
+            {
+                "full_name": "Guru Test",
+                "education": "S1 Pendidikan Matematika",
+                "subject_ids": [self.math_id],
+                "availabilities": [
+                    {"day_of_week": 0, "start_time": "15:00", "end_time": "17:00"},
+                ],
+            },
+        )
+        closer_tutor = self.store.create_tutor(
+            {
+                "full_name": "Guru Dekat",
+                "education": "S1 Pendidikan Matematika",
+                "subject_ids": [self.math_id],
+                "availabilities": [
+                    {"day_of_week": 0, "start_time": "15:00", "end_time": "17:30"},
+                ],
+            }
+        )
+
+        result = self.store.generate_schedule_candidates(
+            {
+                "student_id": self.student["id"],
+                "subject_id": self.math_id,
+                "sessions_per_week": 1,
+                "duration_minutes": 90,
+                "preferred_days": [0],
+                "preferred_start": "18:00",
+                "preferred_end": "18:00",
+            }
+        )
+
+        candidate = result["candidates"][0]
+        slot = candidate["slots"][0]
+
+        self.assertTrue(candidate["recommendation"])
+        self.assertEqual(closer_tutor["id"], candidate["tutor_id"])
+        self.assertEqual("18:00", slot["start_time"])
+        self.assertEqual(30, slot["recommendation_gap_minutes"])
+
+        confirmed = self.store.confirm_generated_schedule({"slots": [slot]})
+        self.assertEqual("draft", confirmed["saved"][0]["status"])
+        self.assertIn("Rekomendasi generator", confirmed["saved"][0]["notes"])
+
+    def test_generator_recommends_less_loaded_tutor_when_time_gap_is_equal(self) -> None:
+        self.store.create_schedule(
+            {
+                "student_id": self.other_student["id"],
+                "tutor_id": self.tutor["id"],
+                "subject_id": self.math_id,
+                "day_of_week": 1,
+                "start_time": "15:00",
+                "end_time": "16:00",
+            }
+        )
+        self.store.update_tutor(
+            self.tutor["id"],
+            {
+                "full_name": "Guru Test",
+                "education": "S1 Pendidikan Matematika",
+                "subject_ids": [self.math_id],
+                "availabilities": [
+                    {"day_of_week": 0, "start_time": "15:00", "end_time": "17:00"},
+                ],
+            },
+        )
+        less_loaded_tutor = self.store.create_tutor(
+            {
+                "full_name": "Guru Lebih Longgar",
+                "education": "S1 Pendidikan Matematika",
+                "subject_ids": [self.math_id],
+                "availabilities": [
+                    {"day_of_week": 0, "start_time": "15:00", "end_time": "17:00"},
+                ],
+            }
+        )
+
+        result = self.store.generate_schedule_candidates(
+            {
+                "student_id": self.student["id"],
+                "subject_id": self.math_id,
+                "sessions_per_week": 1,
+                "duration_minutes": 90,
+                "preferred_days": [0],
+                "preferred_start": "18:00",
+                "preferred_end": "18:00",
+            }
+        )
+
+        self.assertTrue(result["candidates"][0]["recommendation"])
+        self.assertEqual(less_loaded_tutor["id"], result["candidates"][0]["tutor_id"])
 
     def test_confirm_generated_schedule_appears_in_schedule_list(self) -> None:
         result = self.store.generate_schedule_candidates(

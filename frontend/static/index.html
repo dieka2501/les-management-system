@@ -319,7 +319,7 @@
               </label>
               <div class="span-2 availability-editor">
                 <div class="availability-head">
-                  <strong>Hari & jam tersedia</strong>
+                  <strong>Hari & rentang jam mulai</strong>
                   <button class="mini-btn" id="addAvailabilityButton" type="button">Tambah hari</button>
                 </div>
                 <div class="availability-rows" id="availabilityRows"></div>
@@ -345,7 +345,7 @@
               <div class="panel-head">
                 <div>
                   <h2>Buat Jadwal Manual</h2>
-                  <p>Backend akan menolak jika guru/murid bentrok atau guru tidak available.</p>
+                  <p>Backend akan menolak jika guru/murid bentrok atau jam mulai di luar rentang guru.</p>
                 </div>
               </div>
               <form id="scheduleForm" class="form-grid">
@@ -406,7 +406,7 @@
               <div class="panel-head">
                 <div>
                   <h2>Generate Jadwal Otomatis</h2>
-                  <p>Slot aman pertama langsung tersimpan sebagai jadwal aktif.</p>
+                  <p>Jam paling akhir adalah batas mulai belajar. Rekomendasi terdekat disimpan sebagai draft.</p>
                 </div>
               </div>
               <form id="generatorForm" class="form-grid">
@@ -435,7 +435,7 @@
                   <input name="preferred_start" type="time" value="15:00" />
                 </label>
                 <label>
-                  Jam paling akhir
+                  Jam mulai paling akhir
                   <input name="preferred_end" type="time" value="19:00" />
                 </label>
                 <label class="span-2">
@@ -479,7 +479,7 @@
             <ul class="check-list">
               <li>Guru harus mengajar mapel yang dipilih.</li>
               <li>Murid harus mengambil mapel tersebut.</li>
-              <li>Slot wajib masuk availability guru.</li>
+              <li>Jam mulai wajib masuk rentang mulai guru.</li>
               <li>Guru tidak boleh punya jadwal aktif yang tumpang tindih.</li>
               <li>Murid tidak boleh punya jadwal aktif yang tumpang tindih.</li>
             </ul>
