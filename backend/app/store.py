@@ -76,6 +76,24 @@ class NotFoundError(Exception):
     """Raised when a requested row does not exist."""
 
 
+def validation_from_value_error(exc: ValueError) -> ValidationError:
+    return ValidationError(str(exc) or "Input tidak valid.")
+
+
+def normalize_day_input(value: Any) -> int:
+    try:
+        return normalize_day(value)
+    except ValueError as exc:
+        raise validation_from_value_error(exc) from exc
+
+
+def validate_time_range_input(start: str, end: str) -> None:
+    try:
+        validate_time_range(start, end)
+    except ValueError as exc:
+        raise validation_from_value_error(exc) from exc
+
+
 def row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
     return dict(row) if row is not None else None
 
@@ -1057,10 +1075,10 @@ class LesStore:
         subject_id = coerce_int(data.get("subject_id"), "Mata pelajaran")
         sessions_per_week = max(1, min(7, coerce_int(data.get("sessions_per_week", 1), "Jumlah sesi")))
         duration_minutes = max(30, min(240, coerce_int(data.get("duration_minutes", 90), "Durasi sesi")))
-        preferred_days = [normalize_day(day) for day in data.get("preferred_days", [0, 1, 2, 3, 4, 5])]
+        preferred_days = [normalize_day_input(day) for day in data.get("preferred_days", [0, 1, 2, 3, 4, 5])]
         preferred_start = data.get("preferred_start") or "08:00"
         preferred_end = data.get("preferred_end") or "20:00"
-        validate_time_range(preferred_start, preferred_end)
+        validate_time_range_input(preferred_start, preferred_end)
         tutor_id = data.get("tutor_id")
         starts_on = data.get("starts_on") or date.today().isoformat()
         ends_on = data.get("ends_on") or (date.today() + timedelta(days=90)).isoformat()
@@ -1912,10 +1930,10 @@ class LesStore:
             raise ValidationError("Availability guru harus berupa daftar.")
         result = []
         for item in value:
-            day_of_week = normalize_day(item.get("day_of_week"))
+            day_of_week = normalize_day_input(item.get("day_of_week"))
             start_time = require_text(item, "start_time", "Jam mulai availability")
             end_time = require_text(item, "end_time", "Jam selesai availability")
-            validate_time_range(start_time, end_time)
+            validate_time_range_input(start_time, end_time)
             result.append({"day_of_week": day_of_week, "start_time": start_time, "end_time": end_time})
         return result
 
@@ -1927,10 +1945,10 @@ class LesStore:
         student_id = coerce_int(data.get("student_id"), "Murid")
         tutor_id = coerce_int(data.get("tutor_id"), "Guru")
         subject_id = coerce_int(data.get("subject_id"), "Mata pelajaran")
-        day_of_week = normalize_day(data.get("day_of_week"))
+        day_of_week = normalize_day_input(data.get("day_of_week"))
         start_time = require_text(data, "start_time", "Jam mulai")
         end_time = require_text(data, "end_time", "Jam selesai")
-        validate_time_range(start_time, end_time)
+        validate_time_range_input(start_time, end_time)
         if conn is None:
             branch_id = coerce_int(data.get("branch_id", 1), "Cabang")
         else:

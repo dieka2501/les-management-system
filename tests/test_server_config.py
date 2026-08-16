@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import os
 import unittest
+from http import HTTPStatus
 from unittest.mock import patch
 
 from backend.app.main import (
+    LesRequestHandler,
     default_host,
     default_port,
     instagram_raw_webhook_debug_enabled,
@@ -16,6 +18,16 @@ from backend.app.main import (
     parse_host_value,
     safe_next_path,
 )
+
+
+class DummyHandler:
+    def __init__(self) -> None:
+        self.error_status = None
+        self.error_message = None
+
+    def send_error_json(self, status: HTTPStatus, message: str) -> None:
+        self.error_status = status
+        self.error_message = message
 
 
 class ServerConfigTestCase(unittest.TestCase):
@@ -78,6 +90,17 @@ class ServerConfigTestCase(unittest.TestCase):
             normalize_client_api_path("/api/client/chat-simulations/12/messages/99"),
         )
         self.assertEqual("/api/branches", normalize_client_api_path("/api/branches"))
+
+    def test_value_error_is_returned_as_user_input_error(self) -> None:
+        handler = DummyHandler()
+
+        LesRequestHandler.handle_exception(handler, ValueError("Jam selesai harus lebih besar dari jam mulai."))
+
+        self.assertEqual(HTTPStatus.BAD_REQUEST, handler.error_status)
+        self.assertEqual(
+            "Input belum valid. Jam selesai harus lebih besar dari jam mulai.",
+            handler.error_message,
+        )
 
     def test_instagram_raw_webhook_debug_is_disabled_by_default(self) -> None:
         with patch.dict(os.environ, {"IG_DEBUG_RAW_WEBHOOK": ""}, clear=False):

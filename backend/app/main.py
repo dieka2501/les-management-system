@@ -96,6 +96,15 @@ def instagram_raw_webhook_debug_text(raw_body: bytes) -> str:
     return text
 
 
+def user_error_message(prefix: str, detail: str | None = None) -> str:
+    detail = str(detail or "").strip()
+    if not detail:
+        return prefix
+    if detail.rstrip(".!?") == prefix.rstrip(".!?") or detail.startswith(prefix):
+        return detail
+    return f"{prefix} {detail}"
+
+
 class LesRequestHandler(BaseHTTPRequestHandler):
     store: LesStore
 
@@ -466,7 +475,7 @@ class LesRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def send_error_json(self, status: HTTPStatus, message: str) -> None:
-        self.send_json({"error": message}, status)
+        self.send_json({"error": message, "message": message, "status": status.value}, status)
 
     def send_text(
         self,
@@ -492,16 +501,21 @@ class LesRequestHandler(BaseHTTPRequestHandler):
 
     def handle_exception(self, exc: Exception) -> None:
         if isinstance(exc, ValidationError):
-            self.send_error_json(HTTPStatus.BAD_REQUEST, str(exc))
+            self.send_error_json(HTTPStatus.BAD_REQUEST, user_error_message("Input belum valid.", str(exc)))
+        elif isinstance(exc, ValueError):
+            self.send_error_json(HTTPStatus.BAD_REQUEST, user_error_message("Input belum valid.", str(exc)))
         elif isinstance(exc, ProviderAuthenticationError):
-            self.send_error_json(HTTPStatus.UNAUTHORIZED, str(exc))
+            self.send_error_json(HTTPStatus.UNAUTHORIZED, user_error_message("Login admin dibutuhkan.", str(exc)))
         elif isinstance(exc, NotFoundError):
-            self.send_error_json(HTTPStatus.NOT_FOUND, str(exc))
+            self.send_error_json(HTTPStatus.NOT_FOUND, user_error_message("Data tidak ditemukan.", str(exc)))
         elif isinstance(exc, PermissionError):
-            self.send_error_json(HTTPStatus.FORBIDDEN, str(exc))
+            self.send_error_json(HTTPStatus.FORBIDDEN, user_error_message("Akses ditolak.", str(exc)))
         else:
             print(f"Unexpected error: {exc!r}")
-            self.send_error_json(HTTPStatus.INTERNAL_SERVER_ERROR, "Terjadi error internal.")
+            self.send_error_json(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                "Terjadi gangguan pada sistem. Coba ulangi beberapa saat lagi atau hubungi teknis jika masih gagal.",
+            )
 
 
 def create_server(host: str = "127.0.0.1", port: int = 8000, seed_demo: bool = False) -> ThreadingHTTPServer:

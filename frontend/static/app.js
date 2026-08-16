@@ -191,14 +191,19 @@ async function api(path, options = {}) {
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
   });
-  const payload = await response.json();
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch (error) {
+    payload = {};
+  }
   if (response.status === 401) {
     const next = encodeURIComponent(window.location.pathname + window.location.hash);
     window.location.href = `/client/login?next=${next}`;
     throw new Error("Sesi login berakhir. Silakan login ulang.");
   }
   if (!response.ok) {
-    throw new Error(payload.error || "Request gagal.");
+    throw new Error(payload.message || payload.error || `Request gagal dengan status ${response.status}.`);
   }
   return payload;
 }
@@ -273,7 +278,7 @@ function bindForms() {
       state.lastCandidates = candidates;
       if (!candidates.length) {
         renderCandidates(result.message);
-        showToast(result.message, true);
+        showToast(`Generate jadwal belum menemukan slot. ${result.message}`, true);
         return;
       }
 
@@ -284,7 +289,7 @@ function bindForms() {
       await loadDashboard();
       showView("jadwal");
     } catch (error) {
-      showToast(error.message, true);
+      showErrorToast(error, "Gagal generate jadwal.");
     }
   });
 }
@@ -326,7 +331,8 @@ async function submitResource(resource, form, data) {
     showToast(editId ? "Data berhasil diupdate." : "Data berhasil disimpan.");
     await loadDashboard();
   } catch (error) {
-    showToast(error.message, true);
+    const action = editId ? "mengupdate" : "menyimpan";
+    showErrorToast(error, `Gagal ${action} ${labelFor(resource)}.`);
   }
 }
 
@@ -413,7 +419,7 @@ async function archiveResource(resource, id) {
     showToast("Data berhasil diarsipkan.");
     await loadDashboard();
   } catch (error) {
-    showToast(error.message, true);
+    showErrorToast(error, `Gagal mengarsipkan ${labelFor(resource)}.`);
   }
 }
 
@@ -426,7 +432,7 @@ async function cancelSchedule(id) {
     showToast("Jadwal berhasil dibatalkan.");
     await loadDashboard();
   } catch (error) {
-    showToast(error.message, true);
+    showErrorToast(error, "Gagal membatalkan jadwal.");
   }
 }
 
@@ -926,8 +932,14 @@ async function confirmCandidate(index) {
     await loadDashboard();
     showView("jadwal");
   } catch (error) {
-    showToast(error.message, true);
+    showErrorToast(error, "Gagal mengonfirmasi jadwal.");
   }
+}
+
+function showErrorToast(error, context) {
+  const detail = error?.message || "Terjadi kendala yang belum diketahui.";
+  const message = detail.startsWith(context) ? detail : `${context} ${detail}`;
+  showToast(message, true);
 }
 
 function showToast(message, isError = false) {

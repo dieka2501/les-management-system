@@ -95,6 +95,19 @@ class SchedulingTestCase(unittest.TestCase):
                 }
             )
 
+    def test_manual_schedule_rejects_invalid_time_range_as_validation_error(self) -> None:
+        with self.assertRaisesRegex(ValidationError, "Jam selesai harus lebih besar"):
+            self.store.create_schedule(
+                {
+                    "student_id": self.student["id"],
+                    "tutor_id": self.tutor["id"],
+                    "subject_id": self.math_id,
+                    "day_of_week": 0,
+                    "start_time": "17:30",
+                    "end_time": "16:00",
+                }
+            )
+
     def test_subject_can_be_created_updated_and_archived(self) -> None:
         subject = self.store.create_subject(
             {
