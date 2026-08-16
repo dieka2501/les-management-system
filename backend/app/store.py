@@ -1076,6 +1076,8 @@ class LesStore:
         sessions_per_week = max(1, min(7, coerce_int(data.get("sessions_per_week", 1), "Jumlah sesi")))
         duration_minutes = max(30, min(240, coerce_int(data.get("duration_minutes", 90), "Durasi sesi")))
         preferred_days = [normalize_day_input(day) for day in data.get("preferred_days", [0, 1, 2, 3, 4, 5])]
+        if not preferred_days:
+            raise ValidationError("Pilih minimal satu preferensi hari.")
         preferred_start = data.get("preferred_start") or "08:00"
         preferred_end = data.get("preferred_end") or "20:00"
         validate_time_range_input(preferred_start, preferred_end)
@@ -1095,6 +1097,11 @@ class LesStore:
             self.ensure_student_has_subject(conn, student_id, subject_id)
             tutors = self.find_eligible_tutors(conn, subject_id, branch_id, tutor_id)
             candidates: list[dict[str, Any]] = []
+            diagnostics: list[str] = []
+            if not tutors:
+                diagnostics.append(
+                    f"Belum ada guru aktif di {branch['name']} yang mengajar {subject['name']}."
+                )
             for tutor in tutors:
                 slots = self.find_available_slots_for_tutor(
                     conn,
@@ -1133,6 +1140,21 @@ class LesStore:
                             "warnings": [],
                         }
                     )
+                else:
+                    diagnostics.append(
+                        self.explain_tutor_schedule_shortage(
+                            conn,
+                            tutor_id=tutor["id"],
+                            tutor_name=tutor["full_name"],
+                            preferred_days=preferred_days,
+                            preferred_start=preferred_start,
+                            preferred_end=preferred_end,
+                            duration_minutes=duration_minutes,
+                            available_slot_count=len(slots),
+                            selected_slot_count=len(selected),
+                            sessions_per_week=sessions_per_week,
+                        )
+                    )
 
             return {
                 "input": {
@@ -1154,10 +1176,11 @@ class LesStore:
                     "location": location,
                 },
                 "candidates": candidates,
+                "diagnostics": diagnostics,
                 "message": (
                     "Kandidat jadwal ditemukan."
                     if candidates
-                    else "Belum ada kandidat jadwal tanpa bentrok. Coba longgarkan hari/jam atau tambah availability guru."
+                    else "Belum ada kandidat jadwal yang memenuhi semua aturan. Lihat detail alasan per guru."
                 ),
             }
 
@@ -2155,6 +2178,59 @@ class LesStore:
                 slots.append(slot)
                 start += 30
         return slots
+
+    def explain_tutor_schedule_shortage(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        tutor_id: int,
+        tutor_name: str,
+        preferred_days: list[int],
+        preferred_start: str,
+        preferred_end: str,
+        duration_minutes: int,
+        available_slot_count: int,
+        selected_slot_count: int,
+        sessions_per_week: int,
+    ) -> str:
+        day_labels = ", ".join(DAY_NAMES[day] for day in preferred_days)
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM tutor_availabilities
+            WHERE tutor_id = ?
+              AND day_of_week IN ({})
+            ORDER BY day_of_week, start_time
+            """.format(",".join("?" for _ in preferred_days)),
+            [tutor_id, *preferred_days],
+        ).fetchall()
+        if not rows:
+            return f"{tutor_name}: belum punya hari tersedia pada preferensi hari ({day_labels})."
+
+        preferred_start_minutes = parse_time(preferred_start)
+        preferred_end_minutes = parse_time(preferred_end)
+        longest_overlap = 0
+        for availability in rows:
+            window_start = max(parse_time(availability["start_time"]), preferred_start_minutes)
+            window_end = min(parse_time(availability["end_time"]), preferred_end_minutes)
+            longest_overlap = max(longest_overlap, window_end - window_start)
+
+        if longest_overlap <= 0:
+            return (
+                f"{tutor_name}: hari tersedia ada, tetapi di luar jam preferensi "
+                f"{preferred_start}-{preferred_end}."
+            )
+        if longest_overlap < duration_minutes:
+            return (
+                f"{tutor_name}: overlap terpanjang dengan jam preferensi hanya {longest_overlap} menit, "
+                f"kurang dari durasi {duration_minutes} menit."
+            )
+        if available_slot_count == 0:
+            return f"{tutor_name}: ada waktu yang cukup, tetapi semua slot bentrok dengan jadwal aktif."
+        return (
+            f"{tutor_name}: hanya ada {selected_slot_count} slot aman, "
+            f"sedangkan butuh {sessions_per_week} sesi per minggu."
+        )
 
     def select_slots(self, slots: list[dict[str, Any]], sessions_per_week: int) -> list[dict[str, Any]]:
         selected: list[dict[str, Any]] = []

@@ -1,6 +1,7 @@
 const state = {
   data: null,
   lastCandidates: [],
+  lastDiagnostics: [],
   activeView: "beranda",
 };
 
@@ -275,15 +276,17 @@ function bindForms() {
         body: JSON.stringify(data),
       });
       const candidates = result.candidates || [];
+      state.lastDiagnostics = result.diagnostics || [];
       state.lastCandidates = candidates;
       if (!candidates.length) {
         renderCandidates(result.message);
-        showToast(`Generate jadwal belum menemukan slot. ${result.message}`, true);
+        showToast("Generate jadwal belum menemukan slot. Lihat detail alasan di Hasil generate.", true);
         return;
       }
 
       const saved = await saveGeneratedCandidate(candidates[0]);
       state.lastCandidates = [];
+      state.lastDiagnostics = [];
       renderGeneratedResult(saved.saved || [], candidates.length);
       showToast("Jadwal berhasil digenerate dan masuk ke menu Jadwal.");
       await loadDashboard();
@@ -864,7 +867,23 @@ function scheduleCardsHtml(schedules, emptyMessage) {
 function renderCandidates(message = "") {
   const list = document.getElementById("candidateList");
   if (!state.lastCandidates.length) {
-    list.innerHTML = `<div class="empty-state">${escapeHtml(message || "Tidak ada kandidat.")}</div>`;
+    const diagnostics = state.lastDiagnostics || [];
+    list.innerHTML = `
+      <article class="data-card">
+        <header>
+          <div>
+            <strong>Belum ada jadwal yang bisa dibuat</strong>
+            <p>${escapeHtml(message || "Tidak ada kandidat.")}</p>
+          </div>
+          <span class="status warn">Perlu penyesuaian</span>
+        </header>
+        <ul class="diagnostic-list">
+          ${diagnostics.length
+            ? diagnostics.map((item) => `<li>${escapeHtml(item)}</li>`).join("")
+            : "<li>Coba cek cabang, mata pelajaran murid, guru yang mengajar, hari tersedia guru, jam preferensi, dan durasi sesi.</li>"}
+        </ul>
+      </article>
+    `;
     return;
   }
   list.innerHTML = state.lastCandidates.map((candidate, index) => `
@@ -925,10 +944,11 @@ async function confirmCandidate(index) {
   const candidate = state.lastCandidates[index];
   if (!candidate) return;
   try {
-    await saveGeneratedCandidate(candidate);
+    const saved = await saveGeneratedCandidate(candidate);
     showToast("Jadwal kandidat berhasil dikonfirmasi.");
     state.lastCandidates = [];
-    renderCandidates("Jadwal sudah disimpan.");
+    state.lastDiagnostics = [];
+    renderGeneratedResult(saved.saved || [], 1);
     await loadDashboard();
     showView("jadwal");
   } catch (error) {

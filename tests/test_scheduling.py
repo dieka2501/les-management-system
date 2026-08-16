@@ -192,6 +192,38 @@ class SchedulingTestCase(unittest.TestCase):
         self.assertEqual("17:00", slot["start_time"])
         self.assertEqual("18:30", slot["end_time"])
 
+    def test_generator_explains_when_preferred_window_is_too_short_without_existing_schedule(self) -> None:
+        self.store.update_tutor(
+            self.tutor["id"],
+            {
+                "full_name": "Guru Test",
+                "education": "S1 Pendidikan Matematika",
+                "subject_ids": [self.math_id],
+                "availabilities": [
+                    {"day_of_week": 0, "start_time": "09:00", "end_time": "14:00"},
+                    {"day_of_week": 1, "start_time": "09:00", "end_time": "14:00"},
+                ],
+            },
+        )
+
+        result = self.store.generate_schedule_candidates(
+            {
+                "student_id": self.student["id"],
+                "subject_id": self.math_id,
+                "sessions_per_week": 2,
+                "duration_minutes": 90,
+                "preferred_days": [0, 1],
+                "preferred_start": "13:00",
+                "preferred_end": "15:00",
+            }
+        )
+
+        self.assertEqual([], self.store.list_schedules())
+        self.assertEqual([], result["candidates"])
+        self.assertIn("Belum ada kandidat jadwal yang memenuhi semua aturan", result["message"])
+        self.assertIn("overlap terpanjang", result["diagnostics"][0])
+        self.assertIn("kurang dari durasi 90 menit", result["diagnostics"][0])
+
     def test_confirm_generated_schedule_appears_in_schedule_list(self) -> None:
         result = self.store.generate_schedule_candidates(
             {
