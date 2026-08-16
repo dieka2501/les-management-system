@@ -33,18 +33,14 @@ const pageConfig = {
   jadwal: {
     eyebrow: "Operasional Belajar",
     title: "Jadwal",
-    description: "Buat, edit, dan batalkan jadwal yang sudah lolos validasi bentrok.",
-  },
-  generator: {
-    eyebrow: "Penjadwalan Otomatis",
-    title: "Generate Jadwal",
-    description: "Cari kandidat jadwal yang aman, lalu konfirmasi sebelum disimpan.",
+    description: "Buat manual, generate otomatis, edit, dan batalkan jadwal dari satu menu.",
   },
 };
 
 const viewAliases = {
   "orang-tua": "orang-tua-murid",
   murid: "orang-tua-murid",
+  generator: "jadwal",
 };
 
 const dayOptions = [
@@ -273,8 +269,20 @@ function bindForms() {
         method: "POST",
         body: JSON.stringify(data),
       });
-      state.lastCandidates = result.candidates || [];
-      renderCandidates(result.message);
+      const candidates = result.candidates || [];
+      state.lastCandidates = candidates;
+      if (!candidates.length) {
+        renderCandidates(result.message);
+        showToast(result.message, true);
+        return;
+      }
+
+      const saved = await saveGeneratedCandidate(candidates[0]);
+      state.lastCandidates = [];
+      renderGeneratedResult(saved.saved || [], candidates.length);
+      showToast("Jadwal berhasil digenerate dan masuk ke menu Jadwal.");
+      await loadDashboard();
+      showView("jadwal");
     } catch (error) {
       showToast(error.message, true);
     }
@@ -875,18 +883,48 @@ function renderCandidates(message = "") {
   `).join("");
 }
 
+function renderGeneratedResult(savedSchedules, candidateCount) {
+  const list = document.getElementById("candidateList");
+  if (!savedSchedules.length) {
+    list.innerHTML = `<div class="empty-state">Generate selesai, tapi jadwal belum tersimpan.</div>`;
+    return;
+  }
+
+  list.innerHTML = `
+    <article class="data-card">
+      <header>
+        <div>
+          <strong>${savedSchedules.length} jadwal tersimpan</strong>
+          <p>Dipilih dari ${candidateCount} kandidat aman dan sudah masuk ke menu Jadwal.</p>
+        </div>
+        <span class="status">Tersimpan</span>
+      </header>
+      <div class="chips">
+        ${savedSchedules.map((schedule) => `
+          <span class="chip">${escapeHtml(schedule.day_name)}, ${schedule.start_time}-${schedule.end_time}</span>
+        `).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function saveGeneratedCandidate(candidate) {
+  return api("/api/schedules/confirm", {
+    method: "POST",
+    body: JSON.stringify({ slots: candidate.slots }),
+  });
+}
+
 async function confirmCandidate(index) {
   const candidate = state.lastCandidates[index];
   if (!candidate) return;
   try {
-    await api("/api/schedules/confirm", {
-      method: "POST",
-      body: JSON.stringify({ slots: candidate.slots }),
-    });
+    await saveGeneratedCandidate(candidate);
     showToast("Jadwal kandidat berhasil dikonfirmasi.");
     state.lastCandidates = [];
     renderCandidates("Jadwal sudah disimpan.");
     await loadDashboard();
+    showView("jadwal");
   } catch (error) {
     showToast(error.message, true);
   }

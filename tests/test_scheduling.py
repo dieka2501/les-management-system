@@ -179,6 +179,26 @@ class SchedulingTestCase(unittest.TestCase):
         self.assertEqual("17:00", slot["start_time"])
         self.assertEqual("18:30", slot["end_time"])
 
+    def test_confirm_generated_schedule_appears_in_schedule_list(self) -> None:
+        result = self.store.generate_schedule_candidates(
+            {
+                "student_id": self.student["id"],
+                "subject_id": self.math_id,
+                "sessions_per_week": 1,
+                "duration_minutes": 90,
+                "preferred_days": [1],
+                "preferred_start": "15:00",
+                "preferred_end": "19:00",
+            }
+        )
+
+        slot = result["candidates"][0]["slots"][0]
+        confirmed = self.store.confirm_generated_schedule({"slots": [slot]})
+        saved_id = confirmed["saved"][0]["id"]
+        schedule_ids = [schedule["id"] for schedule in self.store.list_schedules()]
+
+        self.assertIn(saved_id, schedule_ids)
+
     def test_confirm_generated_schedule_rejects_internal_overlap(self) -> None:
         slot = {
             "student_id": self.student["id"],
