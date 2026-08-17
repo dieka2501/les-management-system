@@ -1470,7 +1470,9 @@ class LesStore:
 
     def send_provider_chat_simulation_message(self, session_id: int, data: dict[str, Any]) -> dict[str, Any]:
         message = require_text(data, "message", "Pesan simulasi")
-        reply_mode = self.normalize_provider_chat_reply_mode(data.get("mode") or data.get("reply_mode"))
+        reply_mode = self.normalize_provider_chat_reply_mode(
+            data.get("mode") or data.get("reply_mode") or self.default_chatbot_reply_mode()
+        )
         with self.connection() as conn:
             session = self.get_provider_chat_simulation_session_row(conn, session_id)
             history = self.list_provider_chat_simulation_messages(conn, session_id)
@@ -1556,6 +1558,11 @@ class LesStore:
         if mode not in aliases:
             raise ValidationError("Mode balasan harus rule_based atau gemini.")
         return aliases[mode]
+
+    def default_chatbot_reply_mode(self) -> str:
+        if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+            return "gemini"
+        return "rule_based"
 
     def find_provider_chat_training_override(
         self,
@@ -1710,9 +1717,7 @@ class LesStore:
         }
 
     def default_whatsapp_reply_mode(self) -> str:
-        if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
-            return "gemini"
-        return "rule_based"
+        return self.default_chatbot_reply_mode()
 
     def find_or_create_whatsapp_chat_session(self, event: FonnteMessageEvent) -> dict[str, Any]:
         title = f"WhatsApp {event.sender_number}"
@@ -1887,9 +1892,7 @@ class LesStore:
         }
 
     def default_instagram_reply_mode(self) -> str:
-        if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
-            return "gemini"
-        return "rule_based"
+        return self.default_chatbot_reply_mode()
 
     def find_or_create_instagram_chat_session(self, event: InstagramMessageEvent) -> dict[str, Any]:
         title = f"Instagram DM {event.sender_id}"

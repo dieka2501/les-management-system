@@ -25,11 +25,14 @@ from backend.app.store import LesStore, filter_instagram_payload_for_target_user
 
 class InstagramWebhookTestCase(unittest.TestCase):
     def setUp(self) -> None:
+        self.env_patcher = patch.dict(os.environ, {"GEMINI_API_KEY": "", "GOOGLE_API_KEY": ""}, clear=False)
+        self.env_patcher.start()
         self.tmpdir = tempfile.TemporaryDirectory()
         self.store = LesStore(Path(self.tmpdir.name) / "instagram.sqlite3")
 
     def tearDown(self) -> None:
         self.tmpdir.cleanup()
+        self.env_patcher.stop()
 
     def test_verify_instagram_challenge_returns_meta_challenge(self) -> None:
         with patch.dict(os.environ, {"IG_WEBHOOK_VERIFY_TOKEN": "secret"}, clear=False):

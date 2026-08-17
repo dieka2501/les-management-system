@@ -4,12 +4,8 @@ const state = {
   faqScript: [],
   trainingExamples: [],
   editingResponseId: null,
-  replyMode: "rule_based",
   sessionFilter: "all",
 };
-
-const replyModeStorageKey = "adminChatReplyMode";
-const legacyReplyModeStorageKey = "providerChatReplyMode";
 
 const els = {};
 
@@ -27,7 +23,6 @@ document.addEventListener("DOMContentLoaded", () => {
     messageForm: document.getElementById("messageForm"),
     messageInput: document.getElementById("messageInput"),
     messageSubmitButton: document.getElementById("messageSubmitButton"),
-    replyModeSelect: document.getElementById("replyModeSelect"),
     trainingCount: document.getElementById("trainingCount"),
     trainingExamples: document.getElementById("trainingExamples"),
     faqScript: document.getElementById("faqScript"),
@@ -40,7 +35,6 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("seedButton").addEventListener("click", () => createSession(true));
   document.getElementById("copyTrainingButton").addEventListener("click", copyTrainingExamples);
   els.logoutButton.addEventListener("click", logoutAdmin);
-  els.replyModeSelect.addEventListener("change", handleReplyModeChange);
   els.messageForm.addEventListener("submit", sendMessage);
   els.sessionList.addEventListener("click", handleSessionClick);
   els.sessionFilters.addEventListener("click", handleSessionFilterClick);
@@ -48,10 +42,6 @@ document.addEventListener("DOMContentLoaded", () => {
   els.chatThread.addEventListener("click", handleChatThreadClick);
   els.chatThread.addEventListener("submit", handleChatThreadSubmit);
 
-  state.replyMode = normalizeReplyMode(
-    localStorage.getItem(replyModeStorageKey) || localStorage.getItem(legacyReplyModeStorageKey)
-  );
-  els.replyModeSelect.value = state.replyMode;
   loadAll();
 });
 
@@ -152,7 +142,7 @@ async function sendMessage(event) {
         })
       : await api(`/api/client/chat-simulations/${state.activeSession.id}/messages`, {
           method: "POST",
-          body: JSON.stringify({ message, mode: state.replyMode }),
+          body: JSON.stringify({ message }),
         });
     els.messageInput.value = "";
     state.activeSession = result.session;
@@ -167,18 +157,6 @@ async function sendMessage(event) {
     applyComposerMode(state.activeSession);
     els.messageInput.focus();
   }
-}
-
-function handleReplyModeChange() {
-  state.replyMode = normalizeReplyMode(els.replyModeSelect.value);
-  els.replyModeSelect.value = state.replyMode;
-  localStorage.setItem(replyModeStorageKey, state.replyMode);
-  localStorage.removeItem(legacyReplyModeStorageKey);
-  showToast(state.replyMode === "gemini" ? "Mode Gemini AI aktif." : "Mode aturan dasar aktif.");
-}
-
-function normalizeReplyMode(value) {
-  return value === "gemini" ? "gemini" : "rule_based";
 }
 
 function handleSessionClick(event) {

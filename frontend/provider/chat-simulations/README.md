@@ -18,9 +18,6 @@ Tidak ada username. API internal chatbot juga ikut diproteksi oleh session cooki
 
 Asset JavaScript dan CSS berada di `frontend/provider/assets`. Nama folder lama hanya detail teknis internal.
 
-Dropdown `Mode` mendukung:
-
-- `Rule-based`: balasan lokal dari logic simulator.
-- `Gemini AI`: balasan dari Gemini API lewat backend, memakai knowledge base dan guardrail.
+Admin tidak memilih mode teknis chatbot. Backend menjalankan satu alur chatbot terpadu: Gemini dipakai jika konfigurasi API tersedia, sementara rule/guardrail tetap menjadi dasar validasi dan fallback.
 
 Jika chatbot sudah mendapat persetujuan untuk diteruskan ke admin, sesi masuk stage `transferred_to_admin` dan input chat di simulator dimatikan.

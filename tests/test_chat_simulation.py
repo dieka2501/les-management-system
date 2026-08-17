@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -12,11 +13,14 @@ from backend.app.store import LesStore
 
 class ProviderChatSimulationTestCase(unittest.TestCase):
     def setUp(self) -> None:
+        self.env_patcher = patch.dict(os.environ, {"GEMINI_API_KEY": "", "GOOGLE_API_KEY": ""}, clear=False)
+        self.env_patcher.start()
         self.tmpdir = tempfile.TemporaryDirectory()
         self.store = LesStore(Path(self.tmpdir.name) / "chat_simulation.sqlite3")
 
     def tearDown(self) -> None:
         self.tmpdir.cleanup()
+        self.env_patcher.stop()
 
     def test_provider_simulation_replies_like_knowledge_base_flow(self) -> None:
         session = self.store.create_provider_chat_simulation_session({"title": "Latihan CS Knowledge Base"})
@@ -246,6 +250,27 @@ class ProviderChatSimulationTestCase(unittest.TestCase):
         self.assertEqual("gemini", result["assistant_message"]["metadata"]["reply_mode"])
         examples = self.store.list_provider_chat_training_examples()
         self.assertEqual("Halo kak, aku chatbot Rumah Privat Madani. Ada yang bisa aku bantu?", examples[0]["expected_reply"])
+
+    def test_integrated_chatbot_uses_gemini_automatically_when_configured(self) -> None:
+        session = self.store.create_provider_chat_simulation_session({"title": "Latihan engine terpadu"})
+        fake_reply = SimulationReply(
+            message="Halo kak, aku chatbot Rumah Privat Madani. Ada yang bisa aku bantu?",
+            intent="greeting",
+            stage="greeting",
+            matched_reference="rumah_privat_madani_chatbot_knowledge.md#greeting",
+            confidence=0.9,
+            needs_review=False,
+            training_tags=["gemini", "greeting"],
+        )
+
+        with (
+            patch.dict(os.environ, {"GEMINI_API_KEY": "configured-for-test", "GOOGLE_API_KEY": ""}, clear=False),
+            patch("backend.app.store.simulate_provider_ai_reply", return_value=fake_reply) as mocked,
+        ):
+            result = self.store.send_provider_chat_simulation_message(session["id"], {"message": "Halo"})
+
+        mocked.assert_called_once()
+        self.assertEqual("gemini", result["assistant_message"]["metadata"]["reply_mode"])
 
 
 if __name__ == "__main__":
