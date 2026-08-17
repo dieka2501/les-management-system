@@ -14,6 +14,10 @@ Orang tua yang ingin mendaftarkan anaknya ke les belajar
 - Gunakan istilah peran yang langsung sesuai dengan bisnis les: admin les, orang tua, murid, guru, cabang, jadwal, pendaftaran, dan chatbot.
 - Jika masih ada nama route, API, tabel, atau function lama yang memakai istilah provider, anggap itu detail teknis internal sampai ada refactor khusus. UI untuk client harus tetap memakai istilah admin les.
 
+# Catatan environment
+- Environment yang saat ini disebut "prod" untuk project ini adalah UAT, bukan production final.
+- Push/deploy ke environment tersebut aman untuk pengecekan dan validasi; jika ada kesalahan masih boleh diperbaiki langsung dari hasil UAT.
+
 # Feature
 - Login Client admin.
 - Chatbot yang berperan sebagai admin penerima pertanyaan dan pendaftaran awal

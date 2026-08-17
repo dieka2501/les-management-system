@@ -107,6 +107,16 @@ class ProviderChatSimulationTestCase(unittest.TestCase):
         examples = self.store.list_provider_chat_training_examples()
         self.assertFalse(examples[0]["needs_review"])
 
+    def test_schedule_question_is_not_misread_as_whatsapp_contact(self) -> None:
+        session = self.store.create_provider_chat_simulation_session({"title": "Latihan jadwal"})
+        result = self.store.send_provider_chat_simulation_message(
+            session["id"],
+            {"message": "Jadwal belajar hari apa saja?"},
+        )
+
+        self.assertNotEqual("contact_info", result["reply"]["intent"])
+        self.assertNotIn("WhatsApp", result["assistant_message"]["message"])
+
     def test_chatbot_asks_close_confirmation_after_question_threshold(self) -> None:
         session = self.store.create_provider_chat_simulation_session({"title": "Latihan threshold"})
         result = None

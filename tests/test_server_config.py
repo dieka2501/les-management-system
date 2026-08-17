@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from backend.app.main import (
     LesRequestHandler,
+    agent_context_request_token,
     default_host,
     default_port,
     instagram_raw_webhook_debug_enabled,
@@ -70,6 +71,7 @@ class ServerConfigTestCase(unittest.TestCase):
         self.assertFalse(is_protected_api_path("/api/provider/login"))
         self.assertFalse(is_protected_api_path("/api/provider/auth"))
         self.assertFalse(is_protected_api_path("/api/v1/webhooks/fonnte"))
+        self.assertFalse(is_protected_api_path("/api/agent/context"))
         self.assertFalse(is_protected_api_path("/webhooks/fonnte"))
         self.assertFalse(is_protected_api_path("/webhooks/instagram"))
 
@@ -90,6 +92,10 @@ class ServerConfigTestCase(unittest.TestCase):
             normalize_client_api_path("/api/client/chat-simulations/12/messages/99"),
         )
         self.assertEqual("/api/branches", normalize_client_api_path("/api/branches"))
+
+    def test_agent_context_token_accepts_bearer_or_custom_header(self) -> None:
+        self.assertEqual("uat-secret", agent_context_request_token({"Authorization": "Bearer uat-secret"}))
+        self.assertEqual("uat-secret", agent_context_request_token({"X-Agent-Context-Token": "uat-secret"}))
 
     def test_value_error_is_returned_as_user_input_error(self) -> None:
         handler = DummyHandler()

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -65,6 +65,7 @@ from .scheduling import (
 
 
 ACTIVE_SCHEDULE_STATUSES = ("draft", "active")
+AGENT_CONTEXT_LIST_LIMIT = 200
 
 
 class ValidationError(Exception):
@@ -109,6 +110,24 @@ def row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
 
 def rows_to_dicts(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
+
+
+def mask_contact_value(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if "@" in text:
+        name, domain = text.split("@", 1)
+        prefix = name[:2] if len(name) > 2 else name[:1]
+        return f"{prefix}***@{domain}"
+    digits = "".join(char for char in text if char.isdigit())
+    if len(digits) <= 4:
+        return "***"
+    return f"{digits[:4]}***{digits[-3:]}"
+
+
+def limited_items(items: list[dict[str, Any]], limit: int = AGENT_CONTEXT_LIST_LIMIT) -> list[dict[str, Any]]:
+    return items[:limit]
 
 
 def safe_instagram_webhook_log_result(result: dict[str, Any]) -> dict[str, Any]:
@@ -332,6 +351,91 @@ class LesStore:
             "registrations": self.list_registrations(),
             "day_names": DAY_NAMES,
         }
+
+    def agent_context_snapshot(self) -> dict[str, Any]:
+        knowledge = self.provider_chatbot_knowledge()
+        training_examples = self.list_provider_chat_training_examples()
+        sessions = self.list_provider_chat_simulation_sessions()
+        return {
+            "schema_version": 1,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "purpose": "UAT agent context snapshot for debugging chatbot and operational data.",
+            "privacy": {
+                "raw_database_access": False,
+                "private_contact_fields": "masked",
+                "max_items_per_collection": AGENT_CONTEXT_LIST_LIMIT,
+            },
+            "summary": self.summary(),
+            "chatbot": {
+                "knowledge_id": knowledge.get("knowledge_id"),
+                "business": knowledge.get("business"),
+                "packages": knowledge.get("packages", []),
+                "answer_rules": knowledge.get("answer_rules", []),
+                "admin_confirmation_needed": knowledge.get("admin_confirmation_needed", []),
+                "training_examples_count": len(training_examples),
+                "training_overrides": limited_items(
+                    [item for item in training_examples if item.get("edited_by_provider")]
+                ),
+                "recent_sessions": limited_items(
+                    [
+                        {
+                            "id": item.get("id"),
+                            "code": item.get("code"),
+                            "title": item.get("title"),
+                            "channel": item.get("channel"),
+                            "source": item.get("source"),
+                            "status": item.get("status"),
+                            "current_stage": item.get("current_stage"),
+                            "message_count": item.get("message_count"),
+                            "last_message_at": item.get("last_message_at"),
+                            "metadata": self.agent_context_session_metadata(item.get("metadata")),
+                        }
+                        for item in sessions
+                    ]
+                ),
+            },
+            "operational_data": {
+                "branches": limited_items(self.list_branches()),
+                "subjects": limited_items(self.list_subjects()),
+                "tutors": limited_items(self.list_tutors()),
+                "schedules": limited_items(self.list_schedules()),
+                "parents": limited_items([self.agent_context_parent(item) for item in self.list_parents()]),
+                "students": limited_items([self.agent_context_student(item) for item in self.list_students()]),
+                "registrations": limited_items(
+                    [self.agent_context_registration(item) for item in self.list_registrations()]
+                ),
+            },
+        }
+
+    def agent_context_session_metadata(self, metadata: Any) -> dict[str, Any]:
+        if not isinstance(metadata, dict):
+            return {}
+        result = dict(metadata)
+        if result.get("sender_number"):
+            result["sender_number"] = mask_contact_value(result["sender_number"])
+        return result
+
+    def agent_context_parent(self, item: dict[str, Any]) -> dict[str, Any]:
+        result = dict(item)
+        if "phone" in result:
+            result["phone"] = mask_contact_value(result["phone"])
+        if "email" in result:
+            result["email"] = mask_contact_value(result["email"])
+        if "address" in result:
+            result["address"] = "masked" if result.get("address") else ""
+        return result
+
+    def agent_context_student(self, item: dict[str, Any]) -> dict[str, Any]:
+        result = dict(item)
+        result.pop("birthplace", None)
+        result.pop("birthdate", None)
+        return result
+
+    def agent_context_registration(self, item: dict[str, Any]) -> dict[str, Any]:
+        result = dict(item)
+        if "parent_phone" in result:
+            result["parent_phone"] = mask_contact_value(result["parent_phone"])
+        return result
 
     def summary(self) -> dict[str, int]:
         with self.connection() as conn:

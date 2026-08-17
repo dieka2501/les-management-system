@@ -470,7 +470,8 @@ def is_registration_question(normalized: str) -> bool:
 
 def is_contact_question(normalized: str) -> bool:
     contact_terms = ("kontak", "whatsapp", "wa", "nomor", "no hp", "instagram", "ig")
-    return any(term in normalized for term in contact_terms)
+    normalized_with_bounds = f" {normalized} "
+    return any(f" {term} " in normalized_with_bounds for term in contact_terms)
 
 
 def is_greeting_question(normalized: str) -> bool:

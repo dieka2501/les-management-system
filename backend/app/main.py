@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hmac
 import os
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -34,6 +35,7 @@ PUBLIC_API_PATHS = {
     "/api/provider/auth",
     "/api/provider/login",
     "/api/provider/logout",
+    "/api/agent/context",
     "/api/v1/webhooks/fonnte",
 }
 PROTECTED_DASHBOARD_PATHS = {"", "/", "/index.html"}
@@ -79,6 +81,23 @@ def instagram_raw_webhook_debug_enabled() -> bool:
     return os.environ.get("IG_DEBUG_RAW_WEBHOOK", "0").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def agent_context_token() -> str:
+    return (
+        os.environ.get("AGENT_CONTEXT_TOKEN")
+        or os.environ.get("UAT_CONTEXT_API_TOKEN")
+        or os.environ.get("MCP_CONTEXT_TOKEN")
+        or ""
+    ).strip()
+
+
+def agent_context_request_token(headers: object) -> str:
+    header_get = getattr(headers, "get", lambda _key, _default=None: "")
+    authorization = str(header_get("Authorization", "") or "").strip()
+    if authorization.lower().startswith("bearer "):
+        return authorization[7:].strip()
+    return str(header_get("X-Agent-Context-Token", "") or "").strip()
+
+
 def instagram_raw_webhook_debug_max_chars() -> int | None:
     raw_value = os.environ.get("IG_DEBUG_RAW_WEBHOOK_MAX_CHARS", "20000").strip()
     try:
@@ -121,6 +140,9 @@ class LesRequestHandler(BaseHTTPRequestHandler):
 
             if api_path == "/api/dashboard-data":
                 self.send_json(self.store.dashboard_data())
+            elif api_path == "/api/agent/context":
+                self.require_agent_context_auth()
+                self.send_json(self.store.agent_context_snapshot())
             elif api_path in FONNTE_WEBHOOK_PATHS:
                 secret_status = self.store.verify_whatsapp_webhook_secret(parsed.query)
                 self.send_json(
@@ -350,6 +372,14 @@ class LesRequestHandler(BaseHTTPRequestHandler):
     def require_provider_api_auth(self) -> None:
         if not self.is_provider_authenticated():
             raise ProviderAuthenticationError("Login admin dibutuhkan.")
+
+    def require_agent_context_auth(self) -> None:
+        expected_token = agent_context_token()
+        if not expected_token:
+            raise PermissionError("AGENT_CONTEXT_TOKEN belum dikonfigurasi di server.")
+        provided_token = agent_context_request_token(self.headers)
+        if not provided_token or not hmac.compare_digest(provided_token, expected_token):
+            raise PermissionError("Token agent context tidak valid.")
 
     def require_provider_page_auth(self, requested_path: str) -> bool:
         if self.is_provider_authenticated():
