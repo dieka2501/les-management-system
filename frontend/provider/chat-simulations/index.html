@@ -19,6 +19,7 @@
         <nav>
           <a href="/">Operasional</a>
           <a class="active" href="/client/chatbot">Latih Chatbot</a>
+          <a href="#sessionList">Percakapan WA</a>
           <a href="#trainingPanel">Koreksi Jawaban</a>
           <a href="#faqPanel">Knowledge Base</a>
         </nav>
@@ -56,6 +57,13 @@
             <div class="new-session-row">
               <input id="sessionTitleInput" type="text" value="Latihan jawaban chatbot" aria-label="Judul latihan" />
             </div>
+            <div class="session-filters" id="sessionFilters" aria-label="Filter sesi percakapan">
+              <button class="filter-button active" type="button" data-filter="all">Semua</button>
+              <button class="filter-button" type="button" data-filter="whatsapp">WA</button>
+              <button class="filter-button" type="button" data-filter="instagram">IG</button>
+              <button class="filter-button" type="button" data-filter="provider">Latihan</button>
+              <button class="filter-button" type="button" data-filter="needs_admin">Perlu admin</button>
+            </div>
             <div class="session-list" id="sessionList"></div>
           </aside>
 
@@ -65,12 +73,15 @@
                 <h2 id="activeSessionTitle">Belum ada sesi</h2>
                 <p id="activeSessionMeta">Buat latihan untuk mulai menguji jawaban.</p>
               </div>
-              <span class="status-pill" id="stagePill">Mulai</span>
+              <div class="chat-controls">
+                <span class="status-pill" id="stagePill">Mulai</span>
+                <div class="supervision-actions" id="supervisionActions"></div>
+              </div>
             </div>
             <div class="chat-thread" id="chatThread"></div>
             <form class="composer" id="messageForm">
               <textarea id="messageInput" rows="2" placeholder="Tulis pesan calon orang tua..." required></textarea>
-              <button type="submit">Kirim</button>
+              <button id="messageSubmitButton" type="submit">Kirim</button>
             </form>
           </section>
 

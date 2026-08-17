@@ -184,6 +184,7 @@ def migrate(conn: sqlite3.Connection) -> None:
             source TEXT NOT NULL DEFAULT 'knowledge_base',
             status TEXT NOT NULL DEFAULT 'open',
             current_stage TEXT NOT NULL DEFAULT 'start',
+            metadata_json TEXT NOT NULL DEFAULT '{}',
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
@@ -208,6 +209,7 @@ def migrate(conn: sqlite3.Connection) -> None:
     )
 
     ensure_branch_columns(conn)
+    ensure_provider_chat_session_columns(conn)
     conn.commit()
 
 
@@ -220,6 +222,10 @@ def ensure_column(conn: sqlite3.Connection, table: str, column: str, definition:
 def ensure_branch_columns(conn: sqlite3.Connection) -> None:
     for table in ("parents", "students", "tutors", "schedules", "registrations"):
         ensure_column(conn, table, "branch_id", "INTEGER NOT NULL DEFAULT 1")
+
+
+def ensure_provider_chat_session_columns(conn: sqlite3.Connection) -> None:
+    ensure_column(conn, "provider_chat_simulation_sessions", "metadata_json", "TEXT NOT NULL DEFAULT '{}'")
 
 
 def seed_master_data(conn: sqlite3.Connection) -> None:

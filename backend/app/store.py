@@ -1323,7 +1323,7 @@ class LesStore:
                 LIMIT 50
                 """
             ).fetchall()
-            return rows_to_dicts(rows)
+            return [self.format_provider_chat_session(row) for row in rows]
 
     def provider_chat_simulation_faq_script(self) -> dict[str, Any]:
         return {"items": FAQ_SIMULATION_SCRIPT}
@@ -1368,10 +1368,11 @@ class LesStore:
         message = require_text(data, "message", "Pesan simulasi")
         reply_mode = self.normalize_provider_chat_reply_mode(data.get("mode") or data.get("reply_mode"))
         with self.connection() as conn:
-            self.get_provider_chat_simulation_session_row(conn, session_id)
+            session = self.get_provider_chat_simulation_session_row(conn, session_id)
             history = self.list_provider_chat_simulation_messages(conn, session_id)
+            lifecycle_history = self.provider_chat_lifecycle_history(session, history)
             try:
-                lifecycle_reply = chat_lifecycle_reply(normalize_text(message), history)
+                lifecycle_reply = chat_lifecycle_reply(normalize_text(message), lifecycle_history)
                 db_reply = None if lifecycle_reply else self.find_provider_chat_training_override(conn, message)
                 if lifecycle_reply:
                     reply = lifecycle_reply
@@ -1386,7 +1387,15 @@ class LesStore:
             except (GeminiConfigurationError, GeminiServiceError) as exc:
                 raise ValidationError(str(exc)) from exc
             turn_index = self.next_provider_chat_turn_index(conn, session_id)
-            metadata = {"training_tags": reply.training_tags, "reply_mode": reply_mode}
+            base_metadata = {"training_tags": reply.training_tags, "reply_mode": reply_mode}
+            parent_metadata = {
+                **base_metadata,
+                **self.normalize_chat_metadata(data.get("parent_metadata") or data.get("metadata")),
+            }
+            assistant_metadata = {
+                **base_metadata,
+                **self.normalize_chat_metadata(data.get("assistant_metadata")),
+            }
             parent_message = self.insert_provider_chat_simulation_message(
                 conn,
                 session_id=session_id,
@@ -1398,7 +1407,7 @@ class LesStore:
                 matched_reference=reply.matched_reference,
                 confidence=reply.confidence,
                 needs_review=reply.needs_review,
-                metadata=metadata,
+                metadata=parent_metadata,
             )
             assistant_message = self.insert_provider_chat_simulation_message(
                 conn,
@@ -1411,7 +1420,7 @@ class LesStore:
                 matched_reference=reply.matched_reference,
                 confidence=reply.confidence,
                 needs_review=reply.needs_review,
-                metadata=metadata,
+                metadata=assistant_metadata,
             )
             conn.execute(
                 """
@@ -1540,10 +1549,20 @@ class LesStore:
 
     def handle_whatsapp_message_event(self, event: FonnteMessageEvent) -> dict[str, Any]:
         session = self.find_or_create_whatsapp_chat_session(event)
+        incoming_metadata = self.whatsapp_incoming_message_metadata(event)
         if session["current_stage"] == "transferred_to_admin":
+            recorded_message = self.record_provider_chat_incoming_message(
+                session["id"],
+                event.text,
+                intent="admin_supervision_incoming",
+                matched_reference="whatsapp/fonnte-webhook#admin-supervision",
+                metadata={**incoming_metadata, "training_excluded": True},
+            )
             return {
                 "session_id": session["id"],
-                "status": "ignored_transferred_to_admin",
+                "message_id": recorded_message["id"],
+                "status": "recorded_waiting_admin",
+                "stage": "transferred_to_admin",
                 "sent": False,
             }
 
@@ -1555,6 +1574,8 @@ class LesStore:
             {
                 "message": event.text,
                 "mode": mode,
+                "parent_metadata": incoming_metadata,
+                "assistant_metadata": self.whatsapp_assistant_message_metadata(event),
             },
         )
         send_result: dict[str, Any] = {"enabled": whatsapp_send_enabled(), "sent": False}
@@ -1570,6 +1591,10 @@ class LesStore:
                 }
             except FonnteSendError as exc:
                 send_result = {"enabled": True, "sent": False, "error": str(exc)}
+        self.merge_provider_chat_message_metadata(
+            result["assistant_message"]["id"],
+            {"delivery": self.safe_delivery_metadata(send_result)},
+        )
 
         return {
             "session_id": result["session"]["id"],
@@ -1587,6 +1612,7 @@ class LesStore:
 
     def find_or_create_whatsapp_chat_session(self, event: FonnteMessageEvent) -> dict[str, Any]:
         title = f"WhatsApp {event.sender_number}"
+        metadata = self.whatsapp_session_metadata(event)
         with self.connection() as conn:
             row = conn.execute(
                 """
@@ -1601,17 +1627,19 @@ class LesStore:
                 (title,),
             ).fetchone()
             if row:
-                return dict(row)
+                self.merge_provider_chat_session_metadata(conn, int(row["id"]), metadata)
+                conn.commit()
+                return self.get_provider_chat_simulation_session_row(conn, int(row["id"]))
 
             code = self.next_code(conn, "provider_chat_simulation_sessions", "SIM")
             cursor = conn.execute(
                 """
                 INSERT INTO provider_chat_simulation_sessions (
-                    code, title, channel, source, current_stage
+                    code, title, channel, source, current_stage, metadata_json
                 )
-                VALUES (?, ?, 'whatsapp', 'fonnte_webhook', 'start')
+                VALUES (?, ?, 'whatsapp', 'fonnte_webhook', 'start', ?)
                 """,
-                (code, title),
+                (code, title, json.dumps(metadata, ensure_ascii=False)),
             )
             conn.commit()
             return self.get_provider_chat_simulation_session_row(conn, int(cursor.lastrowid))
@@ -1695,11 +1723,21 @@ class LesStore:
 
     def handle_instagram_message_event(self, event: InstagramMessageEvent) -> dict[str, Any]:
         session = self.find_or_create_instagram_chat_session(event)
+        incoming_metadata = self.instagram_incoming_message_metadata(event)
         if session["current_stage"] == "transferred_to_admin":
+            recorded_message = self.record_provider_chat_incoming_message(
+                session["id"],
+                event.text,
+                intent="admin_supervision_incoming",
+                matched_reference="instagram/webhook#admin-supervision",
+                metadata={**incoming_metadata, "training_excluded": True},
+            )
             return {
                 "sender_id": event.sender_id,
                 "session_id": session["id"],
-                "status": "ignored_transferred_to_admin",
+                "message_id": recorded_message["id"],
+                "status": "recorded_waiting_admin",
+                "stage": "transferred_to_admin",
                 "sent": False,
             }
 
@@ -1711,6 +1749,8 @@ class LesStore:
             {
                 "message": event.text,
                 "mode": mode,
+                "parent_metadata": incoming_metadata,
+                "assistant_metadata": self.instagram_assistant_message_metadata(event),
             },
         )
         send_result: dict[str, Any] = {"enabled": instagram_send_enabled(), "sent": False}
@@ -1727,6 +1767,10 @@ class LesStore:
                 }
             except InstagramSendError as exc:
                 send_result = {"enabled": True, "sent": False, "error": str(exc)}
+        self.merge_provider_chat_message_metadata(
+            result["assistant_message"]["id"],
+            {"delivery": self.safe_delivery_metadata(send_result)},
+        )
 
         return {
             "sender_id": event.sender_id,
@@ -1745,6 +1789,7 @@ class LesStore:
 
     def find_or_create_instagram_chat_session(self, event: InstagramMessageEvent) -> dict[str, Any]:
         title = f"Instagram DM {event.sender_id}"
+        metadata = self.instagram_session_metadata(event)
         with self.connection() as conn:
             row = conn.execute(
                 """
@@ -1759,20 +1804,202 @@ class LesStore:
                 (title,),
             ).fetchone()
             if row:
-                return dict(row)
+                self.merge_provider_chat_session_metadata(conn, int(row["id"]), metadata)
+                conn.commit()
+                return self.get_provider_chat_simulation_session_row(conn, int(row["id"]))
 
             code = self.next_code(conn, "provider_chat_simulation_sessions", "SIM")
             cursor = conn.execute(
                 """
                 INSERT INTO provider_chat_simulation_sessions (
-                    code, title, channel, source, current_stage
+                    code, title, channel, source, current_stage, metadata_json
                 )
-                VALUES (?, ?, 'instagram', 'instagram_webhook', 'start')
+                VALUES (?, ?, 'instagram', 'instagram_webhook', 'start', ?)
                 """,
-                (code, title),
+                (code, title, json.dumps(metadata, ensure_ascii=False)),
             )
             conn.commit()
             return self.get_provider_chat_simulation_session_row(conn, int(cursor.lastrowid))
+
+    def provider_chat_lifecycle_history(
+        self, session: dict[str, Any], history: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        if session.get("current_stage") == "transferred_to_admin":
+            return history
+        return [
+            item
+            for item in history
+            if not (
+                item.get("role") == "assistant"
+                and (
+                    item.get("intent") == "admin_handoff_confirmed"
+                    or item.get("stage") == "transferred_to_admin"
+                )
+            )
+        ]
+
+    def record_provider_chat_incoming_message(
+        self,
+        session_id: int,
+        message: str,
+        *,
+        intent: str,
+        matched_reference: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        message = require_text({"message": message}, "message", "Pesan masuk")
+        with self.connection() as conn:
+            self.get_provider_chat_simulation_session_row(conn, session_id)
+            turn_index = self.next_provider_chat_turn_index(conn, session_id)
+            stored_message = self.insert_provider_chat_simulation_message(
+                conn,
+                session_id=session_id,
+                turn_index=turn_index,
+                role="parent",
+                message=message,
+                intent=intent,
+                expected_reply="",
+                matched_reference=matched_reference,
+                confidence=1.0,
+                needs_review=False,
+                metadata={
+                    "training_tags": ["live-channel", "admin-supervision", "incoming"],
+                    **self.normalize_chat_metadata(metadata),
+                },
+            )
+            conn.execute(
+                """
+                UPDATE provider_chat_simulation_sessions
+                SET updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (session_id,),
+            )
+            conn.commit()
+            return stored_message
+
+    def update_provider_chat_supervision(self, session_id: int, data: dict[str, Any]) -> dict[str, Any]:
+        action = require_text(data, "action", "Aksi supervisi").lower().replace("-", "_")
+        actions = {
+            "take_over": ("transferred_to_admin", "admin"),
+            "pause_bot": ("transferred_to_admin", "admin"),
+            "admin_takeover": ("transferred_to_admin", "admin"),
+            "resume_bot": ("continue_qa", "bot"),
+            "activate_bot": ("continue_qa", "bot"),
+            "bot_active": ("continue_qa", "bot"),
+        }
+        if action not in actions:
+            raise ValidationError("Aksi supervisi harus take_over atau resume_bot.")
+
+        next_stage, supervision_mode = actions[action]
+        with self.connection() as conn:
+            session = self.get_provider_chat_simulation_session_row(conn, session_id)
+            if session["channel"] not in {"whatsapp", "instagram"}:
+                raise ValidationError("Supervisi hanya tersedia untuk percakapan WA atau Instagram.")
+            metadata = {
+                **self.decode_metadata(session.get("metadata_json")),
+                **session.get("metadata", {}),
+                "supervision_mode": supervision_mode,
+                "supervision_action": action,
+            }
+            conn.execute(
+                """
+                UPDATE provider_chat_simulation_sessions
+                SET current_stage = ?,
+                    status = 'open',
+                    metadata_json = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (next_stage, json.dumps(metadata, ensure_ascii=False), session_id),
+            )
+            conn.commit()
+        return self.get_provider_chat_simulation_session(session_id)
+
+    def send_provider_chat_manual_reply(self, session_id: int, data: dict[str, Any]) -> dict[str, Any]:
+        message = require_text(data, "message", "Balasan admin")
+        session = self.get_provider_chat_simulation_session(session_id)
+        if session["channel"] != "whatsapp":
+            raise ValidationError("Balasan manual saat ini tersedia untuk percakapan WhatsApp.")
+
+        target_number = self.whatsapp_number_from_session(session)
+        if not target_number:
+            raise ValidationError("Nomor WhatsApp sesi ini tidak ditemukan.")
+
+        try:
+            send_response = send_fonnte_text_message(target_number=target_number, text=message)
+        except FonnteSendError as exc:
+            raise ValidationError(str(exc)) from exc
+
+        send_result = {"enabled": True, "sent": True, "response": send_response}
+        with self.connection() as conn:
+            session = self.get_provider_chat_simulation_session_row(conn, session_id)
+            turn_index = self.unanswered_provider_chat_turn_index(conn, session_id)
+            if turn_index is None:
+                turn_index = self.next_provider_chat_turn_index(conn, session_id)
+            metadata = {
+                "training_tags": ["live-channel", "manual-admin-reply"],
+                "source_channel": "whatsapp",
+                "external_provider": "fonnte",
+                "sent_by_admin": True,
+                "manual_reply": True,
+                "delivery": self.safe_delivery_metadata(send_result),
+            }
+            stored_message = self.insert_provider_chat_simulation_message(
+                conn,
+                session_id=session_id,
+                turn_index=turn_index,
+                role="assistant",
+                message=message,
+                intent="admin_manual_reply",
+                expected_reply=message,
+                matched_reference="whatsapp/fonnte-manual-reply",
+                confidence=1.0,
+                needs_review=False,
+                metadata=metadata,
+            )
+            session_metadata = {
+                **session.get("metadata", {}),
+                "supervision_mode": "admin",
+                "supervision_action": "manual_reply",
+            }
+            conn.execute(
+                """
+                UPDATE provider_chat_simulation_sessions
+                SET current_stage = 'transferred_to_admin',
+                    status = 'open',
+                    metadata_json = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (json.dumps(session_metadata, ensure_ascii=False), session_id),
+            )
+            conn.commit()
+
+        return {
+            "message": stored_message,
+            "session": self.get_provider_chat_simulation_session(session_id),
+            "send_result": send_result,
+        }
+
+    def unanswered_provider_chat_turn_index(self, conn: sqlite3.Connection, session_id: int) -> int | None:
+        row = conn.execute(
+            """
+            SELECT parent.turn_index
+            FROM provider_chat_simulation_messages parent
+            LEFT JOIN provider_chat_simulation_messages assistant
+              ON assistant.session_id = parent.session_id
+             AND assistant.turn_index = parent.turn_index
+             AND assistant.role = 'assistant'
+            WHERE parent.session_id = ?
+              AND parent.role = 'parent'
+              AND assistant.id IS NULL
+            ORDER BY parent.turn_index DESC
+            LIMIT 1
+            """,
+            (session_id,),
+        ).fetchone()
+        return int(row["turn_index"]) if row else None
 
     def update_provider_chat_simulation_message(
         self, session_id: int, message_id: int, data: dict[str, Any]
@@ -1862,6 +2089,8 @@ class LesStore:
             for row in rows:
                 item = dict(row)
                 metadata = self.decode_metadata(item.pop("metadata_json"))
+                if metadata.get("training_excluded"):
+                    continue
                 item["needs_review"] = bool(item["needs_review"])
                 item["training_tags"] = metadata.get("training_tags", [])
                 item["edited_by_provider"] = bool(metadata.get("edited_by_provider"))
@@ -1887,7 +2116,7 @@ class LesStore:
         ).fetchone()
         if row is None:
             raise NotFoundError("Simulasi percakapan tidak ditemukan.")
-        return dict(row)
+        return self.format_provider_chat_session(row)
 
     def list_provider_chat_simulation_messages(
         self, conn: sqlite3.Connection, session_id: int
@@ -1989,6 +2218,12 @@ class LesStore:
         ).fetchone()
         return int(row["next_turn"])
 
+    def format_provider_chat_session(self, row: sqlite3.Row) -> dict[str, Any]:
+        item = dict(row)
+        metadata = self.decode_metadata(item.pop("metadata_json", None))
+        item["metadata"] = metadata
+        return item
+
     def format_provider_chat_message(self, row: sqlite3.Row) -> dict[str, Any]:
         item = dict(row)
         metadata = self.decode_metadata(item.pop("metadata_json"))
@@ -1996,6 +2231,149 @@ class LesStore:
         item["metadata"] = metadata
         item["training_tags"] = metadata.get("training_tags", [])
         return item
+
+    def normalize_chat_metadata(self, value: Any) -> dict[str, Any]:
+        if not isinstance(value, dict):
+            return {}
+        return {str(key): item for key, item in value.items() if item not in (None, "")}
+
+    def merge_provider_chat_session_metadata(
+        self, conn: sqlite3.Connection, session_id: int, metadata: dict[str, Any]
+    ) -> None:
+        if not metadata:
+            return
+        row = conn.execute(
+            "SELECT metadata_json FROM provider_chat_simulation_sessions WHERE id = ?",
+            (session_id,),
+        ).fetchone()
+        existing = self.decode_metadata(row["metadata_json"] if row else None)
+        existing.update(self.normalize_chat_metadata(metadata))
+        conn.execute(
+            """
+            UPDATE provider_chat_simulation_sessions
+            SET metadata_json = ?
+            WHERE id = ?
+            """,
+            (json.dumps(existing, ensure_ascii=False), session_id),
+        )
+
+    def merge_provider_chat_message_metadata(self, message_id: int, metadata: dict[str, Any]) -> None:
+        if not metadata:
+            return
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT metadata_json FROM provider_chat_simulation_messages WHERE id = ?",
+                (message_id,),
+            ).fetchone()
+            if row is None:
+                return
+            existing = self.decode_metadata(row["metadata_json"])
+            existing.update(self.normalize_chat_metadata(metadata))
+            conn.execute(
+                """
+                UPDATE provider_chat_simulation_messages
+                SET metadata_json = ?
+                WHERE id = ?
+                """,
+                (json.dumps(existing, ensure_ascii=False), message_id),
+            )
+            conn.commit()
+
+    def safe_delivery_metadata(self, send_result: dict[str, Any]) -> dict[str, Any]:
+        delivery = {
+            "enabled": bool(send_result.get("enabled")),
+            "sent": bool(send_result.get("sent")),
+        }
+        if send_result.get("error"):
+            delivery["error"] = str(send_result["error"])
+        response = send_result.get("response")
+        if isinstance(response, dict):
+            for key in ("status", "reason", "id", "message_id"):
+                if response.get(key) not in (None, ""):
+                    delivery[f"response_{key}"] = response.get(key)
+        return delivery
+
+    def whatsapp_session_metadata(self, event: FonnteMessageEvent) -> dict[str, Any]:
+        return self.normalize_chat_metadata(
+            {
+                "source_channel": "whatsapp",
+                "external_provider": "fonnte",
+                "sender_number": event.sender_number,
+                "sender_name": event.sender_name,
+                "device_identifier": event.device_identifier,
+                "last_external_message_id": event.message_id,
+                "last_external_timestamp": event.timestamp,
+            }
+        )
+
+    def whatsapp_incoming_message_metadata(self, event: FonnteMessageEvent) -> dict[str, Any]:
+        return self.normalize_chat_metadata(
+            {
+                "source_channel": "whatsapp",
+                "external_provider": "fonnte",
+                "sender_number": event.sender_number,
+                "sender_name": event.sender_name,
+                "device_identifier": event.device_identifier,
+                "external_message_id": event.message_id,
+                "external_timestamp": event.timestamp,
+                "received_from_channel": True,
+            }
+        )
+
+    def whatsapp_assistant_message_metadata(self, event: FonnteMessageEvent) -> dict[str, Any]:
+        return self.normalize_chat_metadata(
+            {
+                "source_channel": "whatsapp",
+                "external_provider": "fonnte",
+                "sender_number": event.sender_number,
+                "auto_reply": True,
+            }
+        )
+
+    def whatsapp_number_from_session(self, session: dict[str, Any]) -> str:
+        metadata = session.get("metadata") if isinstance(session.get("metadata"), dict) else {}
+        number = str(metadata.get("sender_number") or "").strip()
+        if number:
+            return number
+        title = str(session.get("title") or "")
+        if title.startswith("WhatsApp "):
+            return title.removeprefix("WhatsApp ").strip()
+        return ""
+
+    def instagram_session_metadata(self, event: InstagramMessageEvent) -> dict[str, Any]:
+        return self.normalize_chat_metadata(
+            {
+                "source_channel": "instagram",
+                "external_provider": "instagram",
+                "sender_id": event.sender_id,
+                "recipient_id": event.recipient_id,
+                "last_external_message_id": event.message_id,
+                "last_external_timestamp": event.timestamp,
+            }
+        )
+
+    def instagram_incoming_message_metadata(self, event: InstagramMessageEvent) -> dict[str, Any]:
+        return self.normalize_chat_metadata(
+            {
+                "source_channel": "instagram",
+                "external_provider": "instagram",
+                "sender_id": event.sender_id,
+                "recipient_id": event.recipient_id,
+                "external_message_id": event.message_id,
+                "external_timestamp": event.timestamp,
+                "received_from_channel": True,
+            }
+        )
+
+    def instagram_assistant_message_metadata(self, event: InstagramMessageEvent) -> dict[str, Any]:
+        return self.normalize_chat_metadata(
+            {
+                "source_channel": "instagram",
+                "external_provider": "instagram",
+                "sender_id": event.sender_id,
+                "auto_reply": True,
+            }
+        )
 
     def decode_metadata(self, raw_value: str | None) -> dict[str, Any]:
         if not raw_value:

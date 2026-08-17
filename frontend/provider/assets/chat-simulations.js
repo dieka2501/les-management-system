@@ -5,6 +5,7 @@ const state = {
   trainingExamples: [],
   editingResponseId: null,
   replyMode: "rule_based",
+  sessionFilter: "all",
 };
 
 const replyModeStorageKey = "adminChatReplyMode";
@@ -15,14 +16,17 @@ const els = {};
 document.addEventListener("DOMContentLoaded", () => {
   Object.assign(els, {
     sessionList: document.getElementById("sessionList"),
+    sessionFilters: document.getElementById("sessionFilters"),
     sessionCount: document.getElementById("sessionCount"),
     sessionTitleInput: document.getElementById("sessionTitleInput"),
     activeSessionTitle: document.getElementById("activeSessionTitle"),
     activeSessionMeta: document.getElementById("activeSessionMeta"),
     stagePill: document.getElementById("stagePill"),
+    supervisionActions: document.getElementById("supervisionActions"),
     chatThread: document.getElementById("chatThread"),
     messageForm: document.getElementById("messageForm"),
     messageInput: document.getElementById("messageInput"),
+    messageSubmitButton: document.getElementById("messageSubmitButton"),
     replyModeSelect: document.getElementById("replyModeSelect"),
     trainingCount: document.getElementById("trainingCount"),
     trainingExamples: document.getElementById("trainingExamples"),
@@ -39,6 +43,8 @@ document.addEventListener("DOMContentLoaded", () => {
   els.replyModeSelect.addEventListener("change", handleReplyModeChange);
   els.messageForm.addEventListener("submit", sendMessage);
   els.sessionList.addEventListener("click", handleSessionClick);
+  els.sessionFilters.addEventListener("click", handleSessionFilterClick);
+  els.supervisionActions.addEventListener("click", handleSupervisionClick);
   els.chatThread.addEventListener("click", handleChatThreadClick);
   els.chatThread.addEventListener("submit", handleChatThreadSubmit);
 
@@ -139,18 +145,26 @@ async function sendMessage(event) {
 
   setComposerDisabled(true);
   try {
-    const result = await api(`/api/client/chat-simulations/${state.activeSession.id}/messages`, {
-      method: "POST",
-      body: JSON.stringify({ message, mode: state.replyMode }),
-    });
+    const result = isManualWhatsappMode(state.activeSession)
+      ? await api(`/api/client/chat-simulations/${state.activeSession.id}/manual-reply`, {
+          method: "POST",
+          body: JSON.stringify({ message }),
+        })
+      : await api(`/api/client/chat-simulations/${state.activeSession.id}/messages`, {
+          method: "POST",
+          body: JSON.stringify({ message, mode: state.replyMode }),
+        });
     els.messageInput.value = "";
     state.activeSession = result.session;
     renderActiveSession();
     await refreshTrainingExamples();
+    if (isManualWhatsappMode(state.activeSession)) {
+      showToast("Balasan admin terkirim ke WhatsApp.");
+    }
   } catch (error) {
     showToast(error.message, true);
   } finally {
-    setComposerDisabled(false);
+    applyComposerMode(state.activeSession);
     els.messageInput.focus();
   }
 }
@@ -173,30 +187,76 @@ function handleSessionClick(event) {
   openSession(Number(button.dataset.sessionId));
 }
 
+function handleSessionFilterClick(event) {
+  const button = event.target.closest("[data-filter]");
+  if (!button) return;
+  state.sessionFilter = button.dataset.filter || "all";
+  renderSessions();
+}
+
+async function handleSupervisionClick(event) {
+  const button = event.target.closest("[data-supervision-action]");
+  if (!button || !state.activeSession) return;
+  const action = button.dataset.supervisionAction;
+  try {
+    const session = await api(`/api/client/chat-simulations/${state.activeSession.id}/supervision`, {
+      method: "PUT",
+      body: JSON.stringify({ action }),
+    });
+    state.activeSession = session;
+    renderActiveSession();
+    await loadAll();
+    showToast(action === "resume_bot" ? "Bot aktif lagi untuk sesi ini." : "Admin mengambil alih percakapan.");
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
 function renderSessions() {
-  els.sessionCount.textContent = `${state.sessions.length} sesi`;
-  if (!state.sessions.length) {
+  const filteredSessions = filteredSessionList();
+  els.sessionCount.textContent = `${filteredSessions.length} dari ${state.sessions.length} sesi`;
+  renderSessionFilterButtons();
+  if (!filteredSessions.length) {
     els.sessionList.innerHTML = `<div class="empty-state">Belum ada sesi.</div>`;
     return;
   }
 
-  els.sessionList.innerHTML = state.sessions
+  els.sessionList.innerHTML = filteredSessions
     .map((session) => {
       const active = state.activeSession && Number(state.activeSession.id) === Number(session.id);
+      const metadata = session.metadata || {};
+      const needsAdmin = session.current_stage === "transferred_to_admin";
       return `
         <button class="session-item ${active ? "active" : ""}" type="button" data-session-id="${session.id}">
           <span class="item-title">
             <span>${escapeHtml(session.code)}</span>
-            <span class="status-pill ${session.current_stage === "needs_review" ? "review" : ""}">
-              ${escapeHtml(formatStage(session.current_stage))}
+            <span class="session-badges">
+              <span class="channel-badge ${escapeHtml(session.channel || "provider")}">${escapeHtml(formatChannelShort(session.channel))}</span>
+              <span class="status-pill ${needsAdmin || session.current_stage === "needs_review" ? "review" : ""}">
+                ${escapeHtml(formatStage(session.current_stage))}
+              </span>
             </span>
           </span>
-          <span class="item-meta">${escapeHtml(session.title)}</span>
-          <span class="item-meta">${Number(session.message_count || 0)} pesan</span>
+          <span class="item-meta">${escapeHtml(sessionDisplayTitle(session))}</span>
+          <span class="item-meta">${Number(session.message_count || 0)} pesan${metadata.sender_number ? ` / ${escapeHtml(metadata.sender_number)}` : ""}</span>
         </button>
       `;
     })
     .join("");
+}
+
+function filteredSessionList() {
+  return state.sessions.filter((session) => {
+    if (state.sessionFilter === "all") return true;
+    if (state.sessionFilter === "needs_admin") return session.current_stage === "transferred_to_admin";
+    return session.channel === state.sessionFilter;
+  });
+}
+
+function renderSessionFilterButtons() {
+  els.sessionFilters.querySelectorAll("[data-filter]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.filter === state.sessionFilter);
+  });
 }
 
 function renderActiveSession() {
@@ -206,20 +266,21 @@ function renderActiveSession() {
     els.activeSessionMeta.textContent = "Buat latihan untuk mulai menguji jawaban chatbot.";
     els.stagePill.textContent = "Mulai";
     els.stagePill.classList.remove("review");
+    els.supervisionActions.innerHTML = "";
     els.chatThread.innerHTML = `<div class="empty-state">Belum ada latihan percakapan.</div>`;
     setComposerDisabled(true);
     return;
   }
 
-  els.activeSessionTitle.textContent = `${session.code} - ${session.title}`;
-  els.activeSessionMeta.textContent = `${formatChannel(session.channel)} / ${formatSource(session.source)} / ${formatStatus(session.status)}`;
+  els.activeSessionTitle.textContent = `${session.code} - ${sessionDisplayTitle(session)}`;
+  els.activeSessionMeta.textContent = activeSessionMetaText(session);
   els.stagePill.textContent = formatStage(session.current_stage);
-  els.stagePill.classList.toggle("review", session.current_stage === "needs_review");
-  const isTransferredToAdmin = session.current_stage === "transferred_to_admin";
-  setComposerDisabled(isTransferredToAdmin);
-  els.messageInput.placeholder = isTransferredToAdmin
-    ? "Chat sudah diteruskan ke admin manusia."
-    : "Tulis pesan calon orang tua...";
+  els.stagePill.classList.toggle(
+    "review",
+    session.current_stage === "needs_review" || session.current_stage === "transferred_to_admin"
+  );
+  renderSupervisionActions(session);
+  applyComposerMode(session);
 
   const messages = session.messages || [];
   if (!messages.length) {
@@ -231,13 +292,70 @@ function renderActiveSession() {
   els.chatThread.scrollTop = els.chatThread.scrollHeight;
 }
 
+function renderSupervisionActions(session) {
+  if (!isLiveSession(session)) {
+    els.supervisionActions.innerHTML = "";
+    return;
+  }
+
+  if (session.current_stage === "transferred_to_admin") {
+    els.supervisionActions.innerHTML = `
+      <button class="secondary compact" type="button" data-supervision-action="resume_bot">Aktifkan bot</button>
+    `;
+    return;
+  }
+
+  els.supervisionActions.innerHTML = `
+    <button class="compact" type="button" data-supervision-action="take_over">Ambil alih</button>
+  `;
+}
+
+function applyComposerMode(session) {
+  if (!session) {
+    els.messageSubmitButton.textContent = "Kirim";
+    setComposerDisabled(true);
+    return;
+  }
+
+  if (isManualWhatsappMode(session)) {
+    els.messageInput.placeholder = "Tulis balasan admin ke WhatsApp...";
+    els.messageSubmitButton.textContent = "Balas WA";
+    setComposerDisabled(false);
+    return;
+  }
+
+  if (isLiveSession(session)) {
+    els.messageInput.placeholder = "Ambil alih dulu untuk membalas manual.";
+    els.messageSubmitButton.textContent = "Bot aktif";
+    setComposerDisabled(true);
+    return;
+  }
+
+  const isTransferredToAdmin = session.current_stage === "transferred_to_admin";
+  els.messageInput.placeholder = isTransferredToAdmin
+    ? "Chat sudah diteruskan ke admin manusia."
+    : "Tulis pesan calon orang tua...";
+  els.messageSubmitButton.textContent = "Kirim";
+  setComposerDisabled(isTransferredToAdmin);
+}
+
+function isLiveSession(session) {
+  return ["whatsapp", "instagram"].includes(session?.channel);
+}
+
+function isManualWhatsappMode(session) {
+  return session?.channel === "whatsapp" && session.current_stage === "transferred_to_admin";
+}
+
 function renderMessage(message) {
   const isParent = message.role === "parent";
-  const label = isParent ? "Calon orang tua" : "Chatbot";
+  const label = messageLabel(message);
   const isEditing = state.editingResponseId === Number(message.id);
   const tags = [
     formatIntent(message.intent),
     formatReference(message.matched_reference),
+    message.metadata?.source_channel ? formatChannel(message.metadata.source_channel) : "",
+    message.metadata?.sent_by_admin ? "balasan admin" : "",
     message.needs_review ? "perlu cek" : "",
   ].filter(Boolean);
 
@@ -386,6 +504,49 @@ function formatChannel(value) {
     instagram: "Instagram",
   };
   return labels[value] || value || "-";
+}
+
+function formatChannelShort(value) {
+  const labels = {
+    provider: "Latihan",
+    whatsapp: "WA",
+    instagram: "IG",
+  };
+  return labels[value] || value || "-";
+}
+
+function sessionDisplayTitle(session) {
+  const metadata = session?.metadata || {};
+  if (session?.channel === "whatsapp") {
+    const name = metadata.sender_name ? `${metadata.sender_name} / ` : "";
+    return `${name}${session.title}`;
+  }
+  return session?.title || "-";
+}
+
+function activeSessionMetaText(session) {
+  const metadata = session?.metadata || {};
+  const parts = [formatChannel(session.channel), formatSource(session.source), formatStatus(session.status)];
+  if (metadata.sender_number) {
+    parts.push(`Nomor ${metadata.sender_number}`);
+  }
+  if (metadata.sender_id) {
+    parts.push(`Sender ${metadata.sender_id}`);
+  }
+  return parts.filter(Boolean).join(" / ");
+}
+
+function messageLabel(message) {
+  const channel = message.metadata?.source_channel;
+  if (message.role === "parent") {
+    if (channel === "whatsapp") return "Orang tua via WA";
+    if (channel === "instagram") return "Orang tua via IG";
+    return "Calon orang tua";
+  }
+  if (message.metadata?.sent_by_admin) {
+    return "Admin les";
+  }
+  return "Chatbot";
 }
 
 function formatSource(value) {

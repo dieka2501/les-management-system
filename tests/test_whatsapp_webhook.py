@@ -145,6 +145,9 @@ class WhatsAppWebhookTestCase(unittest.TestCase):
         self.assertEqual("fonnte_webhook", session["source"])
         self.assertEqual("WhatsApp 628123456789", session["title"])
         self.assertIn("selamat datang di Rumah Privat Madani", session["messages"][1]["message"])
+        self.assertEqual("628123456789", session["metadata"]["sender_number"])
+        self.assertEqual("Ibu Rina", session["metadata"]["sender_name"])
+        self.assertEqual("whatsapp", session["messages"][0]["metadata"]["source_channel"])
 
     def test_store_sends_whatsapp_reply_when_enabled(self) -> None:
         payload = {
@@ -173,6 +176,93 @@ class WhatsAppWebhookTestCase(unittest.TestCase):
         self.assertTrue(result["results"][0]["sent"])
         mocked_send.assert_called_once()
         self.assertEqual("628123456789", mocked_send.call_args.kwargs["target_number"])
+
+    def test_whatsapp_message_after_admin_handoff_is_still_recorded_without_auto_reply(self) -> None:
+        base_payload = {
+            "device": "6281283679665",
+            "sender": "0812 3456 789",
+            "name": "Ibu Rina",
+        }
+
+        with patch.dict(
+            os.environ,
+            {
+                "WA_SEND_ENABLED": "0",
+                "WHATSAPP_SEND_ENABLED": "0",
+                "FONNTE_SEND_ENABLED": "0",
+                "WA_REPLY_MODE": "rule_based",
+                "GEMINI_API_KEY": "",
+                "GOOGLE_API_KEY": "",
+            },
+            clear=False,
+        ):
+            first = self.store.handle_whatsapp_webhook(
+                {**base_payload, "message": "Saya mau daftar les."},
+                secret_status="verified",
+            )
+            second = self.store.handle_whatsapp_webhook(
+                {**base_payload, "message": "Ya, teruskan ke admin."},
+                secret_status="verified",
+            )
+            third = self.store.handle_whatsapp_webhook(
+                {**base_payload, "message": "Nama anak saya Rafi."},
+                secret_status="verified",
+            )
+
+        session_id = first["results"][0]["session_id"]
+        self.assertEqual(session_id, second["results"][0]["session_id"])
+        self.assertEqual(session_id, third["results"][0]["session_id"])
+        self.assertEqual("recorded_waiting_admin", third["results"][0]["status"])
+        self.assertFalse(third["results"][0]["sent"])
+
+        session = self.store.get_provider_chat_simulation_session(session_id)
+        self.assertEqual("transferred_to_admin", session["current_stage"])
+        self.assertEqual(5, len(session["messages"]))
+        self.assertEqual("parent", session["messages"][-1]["role"])
+        self.assertEqual("Nama anak saya Rafi.", session["messages"][-1]["message"])
+        self.assertTrue(session["messages"][-1]["metadata"]["training_excluded"])
+
+    def test_admin_can_take_over_resume_and_send_manual_whatsapp_reply(self) -> None:
+        payload = {
+            "device": "6281283679665",
+            "sender": "0812 3456 789",
+            "message": "Halo",
+            "name": "Ibu Rina",
+        }
+
+        with patch.dict(
+            os.environ,
+            {
+                "WA_SEND_ENABLED": "0",
+                "WHATSAPP_SEND_ENABLED": "0",
+                "FONNTE_SEND_ENABLED": "0",
+                "WA_REPLY_MODE": "rule_based",
+                "GEMINI_API_KEY": "",
+                "GOOGLE_API_KEY": "",
+            },
+            clear=False,
+        ):
+            result = self.store.handle_whatsapp_webhook(payload, secret_status="verified")
+
+        session_id = result["results"][0]["session_id"]
+        taken_over = self.store.update_provider_chat_supervision(session_id, {"action": "take_over"})
+        self.assertEqual("transferred_to_admin", taken_over["current_stage"])
+        self.assertEqual("admin", taken_over["metadata"]["supervision_mode"])
+
+        with patch("backend.app.store.send_fonnte_text_message", return_value={"status": True}) as mocked_send:
+            manual = self.store.send_provider_chat_manual_reply(
+                session_id,
+                {"message": "Baik bu, admin bantu proses pendaftarannya."},
+            )
+
+        mocked_send.assert_called_once()
+        self.assertEqual("628123456789", mocked_send.call_args.kwargs["target_number"])
+        self.assertTrue(manual["message"]["metadata"]["sent_by_admin"])
+        self.assertEqual("admin", manual["session"]["metadata"]["supervision_mode"])
+
+        resumed = self.store.update_provider_chat_supervision(session_id, {"action": "resume_bot"})
+        self.assertEqual("continue_qa", resumed["current_stage"])
+        self.assertEqual("bot", resumed["metadata"]["supervision_mode"])
 
     def test_safe_whatsapp_log_omits_private_sender_and_message_text(self) -> None:
         result = {

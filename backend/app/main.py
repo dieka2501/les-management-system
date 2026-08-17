@@ -272,6 +272,10 @@ class LesRequestHandler(BaseHTTPRequestHandler):
             elif api_path == "/api/provider/chat-simulations":
                 self.require_provider_api_auth()
                 self.send_json(self.store.create_provider_chat_simulation_session(data), HTTPStatus.CREATED)
+            elif self.is_provider_chat_simulation_action_path(api_path, "manual-reply"):
+                self.require_provider_api_auth()
+                session_id = self.parse_provider_chat_simulation_action_path(api_path, "manual-reply")
+                self.send_json(self.store.send_provider_chat_manual_reply(session_id, data), HTTPStatus.CREATED)
             elif api_path.startswith("/api/provider/chat-simulations/"):
                 self.require_provider_api_auth()
                 session_id = self.parse_provider_chat_simulation_message_path(api_path)
@@ -288,6 +292,10 @@ class LesRequestHandler(BaseHTTPRequestHandler):
             if is_protected_api_path(path):
                 self.require_provider_api_auth()
             data = self.read_json_body()
+            if self.is_provider_chat_simulation_action_path(api_path, "supervision"):
+                session_id = self.parse_provider_chat_simulation_action_path(api_path, "supervision")
+                self.send_json(self.store.update_provider_chat_supervision(session_id, data))
+                return
             if api_path.startswith("/api/provider/chat-simulations/"):
                 session_id, message_id = self.parse_provider_chat_simulation_message_update_path(api_path)
                 self.send_json(self.store.update_provider_chat_simulation_message(session_id, message_id, data))
@@ -387,6 +395,18 @@ class LesRequestHandler(BaseHTTPRequestHandler):
             return int(parts[3]), int(parts[5])
         except ValueError as exc:
             raise ValidationError("ID simulasi dan pesan wajib berupa angka.") from exc
+
+    def is_provider_chat_simulation_action_path(self, path: str, action: str) -> bool:
+        parts = [part for part in path.split("/") if part]
+        return len(parts) == 5 and parts[:3] == ["api", "provider", "chat-simulations"] and parts[4] == action
+
+    def parse_provider_chat_simulation_action_path(self, path: str, action: str) -> int:
+        if not self.is_provider_chat_simulation_action_path(path, action):
+            raise NotFoundError("Endpoint aksi percakapan tidak ditemukan.")
+        try:
+            return int([part for part in path.split("/") if part][3])
+        except ValueError as exc:
+            raise ValidationError("ID simulasi wajib berupa angka.") from exc
 
     def read_json_body(self) -> dict:
         raw_body = self.read_raw_body()
