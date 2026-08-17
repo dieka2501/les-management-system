@@ -5,12 +5,16 @@ const state = {
   trainingExamples: [],
   editingResponseId: null,
   sessionFilter: "all",
+  currentView: "chat",
 };
 
 const els = {};
 
 document.addEventListener("DOMContentLoaded", () => {
   Object.assign(els, {
+    pageTitle: document.getElementById("pageTitle"),
+    navLinks: Array.from(document.querySelectorAll("[data-view-target]")),
+    viewPanels: Array.from(document.querySelectorAll("[data-view-panel]")),
     sessionList: document.getElementById("sessionList"),
     sessionFilters: document.getElementById("sessionFilters"),
     sessionCount: document.getElementById("sessionCount"),
@@ -23,6 +27,8 @@ document.addEventListener("DOMContentLoaded", () => {
     messageForm: document.getElementById("messageForm"),
     messageInput: document.getElementById("messageInput"),
     messageSubmitButton: document.getElementById("messageSubmitButton"),
+    seedButton: document.getElementById("seedButton"),
+    newSessionButton: document.getElementById("newSessionButton"),
     trainingCount: document.getElementById("trainingCount"),
     trainingExamples: document.getElementById("trainingExamples"),
     faqScript: document.getElementById("faqScript"),
@@ -31,9 +37,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.getElementById("refreshButton").addEventListener("click", loadAll);
-  document.getElementById("newSessionButton").addEventListener("click", () => createSession(false));
-  document.getElementById("seedButton").addEventListener("click", () => createSession(true));
+  els.newSessionButton.addEventListener("click", () => createSession(false));
+  els.seedButton.addEventListener("click", () => createSession(true));
   document.getElementById("copyTrainingButton").addEventListener("click", copyTrainingExamples);
+  els.navLinks.forEach((link) => link.addEventListener("click", handleViewNavigation));
   els.logoutButton.addEventListener("click", logoutAdmin);
   els.messageForm.addEventListener("submit", sendMessage);
   els.sessionList.addEventListener("click", handleSessionClick);
@@ -41,9 +48,56 @@ document.addEventListener("DOMContentLoaded", () => {
   els.supervisionActions.addEventListener("click", handleSupervisionClick);
   els.chatThread.addEventListener("click", handleChatThreadClick);
   els.chatThread.addEventListener("submit", handleChatThreadSubmit);
+  els.trainingExamples.addEventListener("click", handleTrainingExampleClick);
+  window.addEventListener("hashchange", () => setCurrentView(viewFromHash()));
 
+  setCurrentView(viewFromHash(), { silent: true });
   loadAll();
 });
+
+function viewFromHash() {
+  const hash = window.location.hash.replace("#", "");
+  const aliases = {
+    chat: "chat",
+    corrections: "corrections",
+    koreksi: "corrections",
+    training: "corrections",
+    knowledge: "knowledge",
+    faq: "knowledge",
+  };
+  return aliases[hash] || "chat";
+}
+
+function handleViewNavigation(event) {
+  const link = event.currentTarget;
+  const view = link.dataset.viewTarget;
+  if (!view) return;
+  event.preventDefault();
+  setCurrentView(view);
+  window.history.replaceState(null, "", `#${view}`);
+}
+
+function setCurrentView(view, options = {}) {
+  const labels = {
+    chat: "Latih Chatbot",
+    corrections: "Koreksi Jawaban",
+    knowledge: "Knowledge Base",
+  };
+  state.currentView = labels[view] ? view : "chat";
+  els.pageTitle.textContent = labels[state.currentView];
+  els.navLinks.forEach((link) => {
+    link.classList.toggle("active", link.dataset.viewTarget === state.currentView);
+  });
+  els.viewPanels.forEach((panel) => {
+    panel.hidden = panel.dataset.viewPanel !== state.currentView;
+  });
+  const isChatView = state.currentView === "chat";
+  els.seedButton.hidden = !isChatView;
+  els.newSessionButton.hidden = !isChatView;
+  if (!options.silent) {
+    showToast(`Membuka ${labels[state.currentView]}.`);
+  }
+}
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -447,16 +501,35 @@ function renderTrainingExamples() {
     .map((item) => `
       <article class="example-item">
         <strong>${escapeHtml(item.session_code)} / ${escapeHtml(formatIntent(item.intent) || "Belum terdeteksi")}</strong>
-        <p>${escapeHtml(item.parent_message)}</p>
-        <p>${escapeHtml(item.expected_reply || "")}</p>
+        <div class="qa-grid">
+          <section>
+            <span class="field-label">Pertanyaan</span>
+            <p>${escapeHtml(item.parent_message)}</p>
+          </section>
+          <section>
+            <span class="field-label">Jawaban</span>
+            <p>${escapeHtml(item.expected_reply || "")}</p>
+          </section>
+        </div>
         <div class="message-meta">
           <span class="tag ${item.needs_review ? "review" : ""}">${item.needs_review ? "perlu cek" : "siap"}</span>
           ${item.edited_by_provider ? `<span class="tag">koreksi aktif</span>` : ""}
           <span class="tag">${escapeHtml(formatReference(item.matched_reference) || "Tanpa referensi")}</span>
         </div>
+        <div class="example-actions">
+          <button class="secondary compact" type="button" data-open-session-id="${item.session_id}">Buka percakapan</button>
+        </div>
       </article>
     `)
     .join("");
+}
+
+function handleTrainingExampleClick(event) {
+  const button = event.target.closest("[data-open-session-id]");
+  if (!button) return;
+  setCurrentView("chat", { silent: true });
+  window.history.replaceState(null, "", "#chat");
+  openSession(Number(button.dataset.openSessionId));
 }
 
 async function refreshTrainingExamples() {

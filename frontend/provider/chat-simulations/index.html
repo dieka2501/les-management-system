@@ -18,7 +18,9 @@
         </div>
         <nav>
           <a href="/">Operasional</a>
-          <a class="active" href="/client/chatbot">Latih Chatbot</a>
+          <a class="active" href="#chat" data-view-target="chat">Latih Chatbot</a>
+          <a href="#corrections" data-view-target="corrections">Koreksi Jawaban</a>
+          <a href="#knowledge" data-view-target="knowledge">Knowledge Base</a>
         </nav>
       </aside>
 
@@ -26,7 +28,7 @@
         <header class="topbar">
           <div>
             <p class="eyebrow">Admin Chatbot</p>
-            <h1>Latih Chatbot</h1>
+            <h1 id="pageTitle">Latih Chatbot</h1>
           </div>
           <div class="toolbar">
             <button class="secondary" id="seedButton" type="button">Muat contoh awal</button>
@@ -35,68 +37,72 @@
           </div>
         </header>
 
-        <section class="layout-grid" aria-label="Latihan percakapan chatbot">
-          <aside class="panel sessions-panel">
+        <section class="view-panel" id="chatView" data-view-panel="chat" aria-label="Latihan percakapan chatbot">
+          <div class="layout-grid chat-layout">
+            <aside class="panel sessions-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Sesi</h2>
+                  <p id="sessionCount">0 sesi</p>
+                </div>
+                <button class="icon-button" id="refreshButton" type="button" title="Refresh">R</button>
+              </div>
+              <div class="new-session-row">
+                <input id="sessionTitleInput" type="text" value="Latihan jawaban chatbot" aria-label="Judul latihan" />
+              </div>
+              <div class="session-filters" id="sessionFilters" aria-label="Filter sesi percakapan">
+                <button class="filter-button active" type="button" data-filter="all">Semua</button>
+                <button class="filter-button" type="button" data-filter="whatsapp">WA</button>
+                <button class="filter-button" type="button" data-filter="instagram">IG</button>
+                <button class="filter-button" type="button" data-filter="provider">Latihan</button>
+                <button class="filter-button" type="button" data-filter="needs_admin">Perlu admin</button>
+              </div>
+              <div class="session-list" id="sessionList"></div>
+            </aside>
+
+            <section class="panel chat-panel">
+              <div class="panel-head chat-head">
+                <div>
+                  <h2 id="activeSessionTitle">Belum ada sesi</h2>
+                  <p id="activeSessionMeta">Buat latihan untuk mulai menguji jawaban.</p>
+                </div>
+                <div class="chat-controls">
+                  <span class="status-pill" id="stagePill">Mulai</span>
+                  <div class="supervision-actions" id="supervisionActions"></div>
+                </div>
+              </div>
+              <div class="chat-thread" id="chatThread"></div>
+              <form class="composer" id="messageForm">
+                <textarea id="messageInput" rows="2" placeholder="Tulis pesan calon orang tua..." required></textarea>
+                <button id="messageSubmitButton" type="submit">Kirim</button>
+              </form>
+            </section>
+          </div>
+        </section>
+
+        <section class="view-panel" id="correctionsView" data-view-panel="corrections" hidden>
+          <section class="panel page-panel" id="trainingPanel">
             <div class="panel-head">
               <div>
-                <h2>Sesi</h2>
-                <p id="sessionCount">0 sesi</p>
+                <h2>Koreksi Jawaban</h2>
+                <p id="trainingCount">0 contoh</p>
               </div>
-              <button class="icon-button" id="refreshButton" type="button" title="Refresh">R</button>
+              <button class="secondary compact" id="copyTrainingButton" type="button">Salin JSON</button>
             </div>
-            <div class="new-session-row">
-              <input id="sessionTitleInput" type="text" value="Latihan jawaban chatbot" aria-label="Judul latihan" />
-            </div>
-            <div class="session-filters" id="sessionFilters" aria-label="Filter sesi percakapan">
-              <button class="filter-button active" type="button" data-filter="all">Semua</button>
-              <button class="filter-button" type="button" data-filter="whatsapp">WA</button>
-              <button class="filter-button" type="button" data-filter="instagram">IG</button>
-              <button class="filter-button" type="button" data-filter="provider">Latihan</button>
-              <button class="filter-button" type="button" data-filter="needs_admin">Perlu admin</button>
-            </div>
-            <div class="session-list" id="sessionList"></div>
-          </aside>
-
-          <section class="panel chat-panel">
-            <div class="panel-head chat-head">
-              <div>
-                <h2 id="activeSessionTitle">Belum ada sesi</h2>
-                <p id="activeSessionMeta">Buat latihan untuk mulai menguji jawaban.</p>
-              </div>
-              <div class="chat-controls">
-                <span class="status-pill" id="stagePill">Mulai</span>
-                <div class="supervision-actions" id="supervisionActions"></div>
-              </div>
-            </div>
-            <div class="chat-thread" id="chatThread"></div>
-            <form class="composer" id="messageForm">
-              <textarea id="messageInput" rows="2" placeholder="Tulis pesan calon orang tua..." required></textarea>
-              <button id="messageSubmitButton" type="submit">Kirim</button>
-            </form>
+            <div class="example-list wide-list" id="trainingExamples"></div>
           </section>
+        </section>
 
-          <aside class="side-stack">
-            <section class="panel" id="trainingPanel">
-              <div class="panel-head">
-                <div>
-                  <h2>Koreksi Jawaban</h2>
-                  <p id="trainingCount">0 contoh</p>
-                </div>
-                <button class="secondary compact" id="copyTrainingButton" type="button">Salin JSON</button>
+        <section class="view-panel" id="knowledgeView" data-view-panel="knowledge" hidden>
+          <section class="panel page-panel" id="faqPanel">
+            <div class="panel-head">
+              <div>
+                <h2>Knowledge Base</h2>
+                <p>Contoh jawaban dasar</p>
               </div>
-              <div class="example-list" id="trainingExamples"></div>
-            </section>
-
-            <section class="panel" id="faqPanel">
-              <div class="panel-head">
-                <div>
-                  <h2>Knowledge Base</h2>
-                  <p>Contoh jawaban dasar</p>
-                </div>
-              </div>
-              <div class="faq-list" id="faqScript"></div>
-            </section>
-          </aside>
+            </div>
+            <div class="faq-list wide-list" id="faqScript"></div>
+          </section>
         </section>
       </main>
     </div>

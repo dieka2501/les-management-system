@@ -179,9 +179,13 @@ h2 {
 
 .layout-grid {
   display: grid;
-  grid-template-columns: minmax(240px, 300px) minmax(360px, 1fr) minmax(280px, 380px);
+  grid-template-columns: minmax(260px, 340px) minmax(480px, 1fr);
   gap: 16px;
   align-items: start;
+}
+
+.view-panel[hidden] {
+  display: none;
 }
 
 .panel {
@@ -260,6 +264,11 @@ textarea:focus {
   max-height: calc(100vh - 232px);
   overflow: auto;
   padding: 12px;
+}
+
+.wide-list {
+  max-height: calc(100vh - 184px);
+  padding: 16px;
 }
 
 .session-item,
@@ -414,6 +423,12 @@ textarea:focus {
   margin-top: 10px;
 }
 
+.example-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
 .text-button {
   min-height: 30px;
   border: 0;
@@ -459,9 +474,8 @@ textarea:focus {
   resize: vertical;
 }
 
-.side-stack {
-  display: grid;
-  gap: 16px;
+.page-panel {
+  min-height: calc(100vh - 116px);
 }
 
 .example-item strong,
@@ -475,6 +489,26 @@ textarea:focus {
   color: var(--muted);
   font-size: 0.9rem;
   line-height: 1.45;
+}
+
+.qa-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.35fr);
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.qa-grid section {
+  min-width: 0;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--accent-dark);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .toast {
@@ -520,6 +554,10 @@ textarea:focus {
   .chat-thread {
     max-height: none;
   }
+
+  .page-panel {
+    min-height: auto;
+  }
 }
 
 @media (max-width: 640px) {
@@ -541,5 +579,9 @@ textarea:focus {
 
   .message {
     max-width: 100%;
+  }
+
+  .qa-grid {
+    grid-template-columns: 1fr;
   }
 }
